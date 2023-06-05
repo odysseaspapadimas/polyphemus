@@ -15,7 +15,6 @@ const poppins = Poppins({
   subsets: ["latin"]
 });
 
-console.log(poppins, "poppins");
 interface AppProps {
   pageProps: { session: Session | null };
   Component: NextComponentType<NextPageContext, any, {}> & {

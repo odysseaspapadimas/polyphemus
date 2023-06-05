@@ -31,6 +31,9 @@ dependencies:
   '@t3-oss/env-nextjs':
     specifier: ^0.3.1
     version: 0.3.1(typescript@5.0.4)(zod@3.21.4)
+  '@tabler/icons-react':
+    specifier: ^2.21.0
+    version: 2.21.0(react@18.2.0)
   '@tanstack/react-query':
     specifier: ^4.29.7
     version: 4.29.7(react-dom@18.2.0)(react@18.2.0)
@@ -46,6 +49,9 @@ dependencies:
   '@trpc/server':
     specifier: ^10.26.0
     version: 10.26.0
+  moviedb-promise:
+    specifier: ^3.4.0
+    version: 3.4.0
   next:
     specifier: ^13.4.2
     version: 13.4.2(react-dom@18.2.0)(react@18.2.0)
@@ -830,6 +836,20 @@ packages:
       zod: 3.21.4
     dev: false
 
+  /@tabler/icons-react@2.21.0(react@18.2.0):
+    resolution: {integrity: sha512-iW/Eqqb7gILb8w/BgzCLZ/8DFZxojgiu12BYJFVuWIblLysXTZ2FjahY7m0VQ41vsyfDFWKofn1uvIPCfa8yGQ==}
+    peerDependencies:
+      react: ^16.5.1 || ^17.0.0 || ^18.0.0
+    dependencies:
+      '@tabler/icons': 2.21.0
+      prop-types: 15.8.1
+      react: 18.2.0
+    dev: false
+
+  /@tabler/icons@2.21.0:
+    resolution: {integrity: sha512-XKrTEHMX6XzCOwcOU8ZNA+Xqm51sI+0abn2jk1fyQUpWeFnGsOEiC+fpQ4EISc+v+U9jqgTSbh8bZ6JBuKU5sw==}
+    dev: false
+
   /@tanstack/query-core@4.29.7:
     resolution: {integrity: sha512-GXG4b5hV2Loir+h2G+RXhJdoZhJLnrBWsuLB2r0qBRyhWuXq9w/dWxzvpP89H0UARlH6Mr9DiVj4SMtpkF/aUA==}
     dev: false
@@ -1256,6 +1276,14 @@ packages:
     resolution: {integrity: sha512-zIURGIS1E1Q4pcrMjp+nnEh+16G56eG/MUllJH8yEvw7asDo7Ac9uhC9KIH5jzpITueEZolfYglnCGIuSBz39g==}
     engines: {node: '>=4'}
     dev: true
+
+  /axios@0.26.1:
+    resolution: {integrity: sha512-fPwcX4EvnSHuInCMItEhAGnaSEXRBjtzh9fOtsE6E1G6p7vl7edEeZe11QHf18+6+9gR5PbKV/sGKNaD8YaMeA==}
+    dependencies:
+      follow-redirects: 1.15.2
+    transitivePeerDependencies:
+      - debug
+    dev: false
 
   /axobject-query@3.1.1:
     resolution: {integrity: sha512-goKlv8DZrK9hUh975fnHzhNIO4jUnFCfv/dszV5VwUGDFjI6vQ2VwoyjYjYNEbBE8AH87TduWP5uyDR1D+Iteg==}
@@ -2146,6 +2174,16 @@ packages:
     resolution: {integrity: sha512-5nqDSxl8nn5BSNxyR3n4I6eDmbolI6WT+QqR547RwxQapgjQBmtktdP+HTBb/a/zLsbzERTONyUB5pefh5TtjQ==}
     dev: true
 
+  /follow-redirects@1.15.2:
+    resolution: {integrity: sha512-VQLG33o04KaQ8uYi2tVNbdrWp1QWxNNea+nmIB4EVM28v0hmP17z7aG1+wAkNzVq4KeXTq3221ye5qTJP91JwA==}
+    engines: {node: '>=4.0'}
+    peerDependencies:
+      debug: '*'
+    peerDependenciesMeta:
+      debug:
+        optional: true
+    dev: false
+
   /for-each@0.3.3:
     resolution: {integrity: sha512-jqYfLp7mo9vIyQf8ykW2v7A+2N4QjeCeI5+Dz9XraiO1ign81wjiH7Fb9vSOWvQfNtmSa4H2RoQTrrXivdUZmw==}
     dependencies:
@@ -2821,6 +2859,15 @@ packages:
 
   /minimist@1.2.8:
     resolution: {integrity: sha512-2yyAR8qBkN3YuheJanUpWC5U3bb5osDywNB8RzDVlDwDHbocAJveqqj1u8+SVD7jkWT4yvsHCpWqqWqAxb0zCA==}
+
+  /moviedb-promise@3.4.0:
+    resolution: {integrity: sha512-sNCtSaQKl7qqXSsxr29/hYQ1JloR3shx+0u0fY7c8+cVoiisonCmxfjXjKuYGFpQ053PUpciqz/PSK2W9eF41w==}
+    dependencies:
+      axios: 0.26.1
+      lodash: 4.17.21
+    transitivePeerDependencies:
+      - debug
+    dev: false
 
   /ms@2.1.2:
     resolution: {integrity: sha512-sGkPx+VjMtmA6MX27oA4FBFELFCZZ4S4XqeGOXCv68tT+jb3vk/RyaKWP0PTKyWtmLSM0b+adUTEvbs1PEaH2w==}
