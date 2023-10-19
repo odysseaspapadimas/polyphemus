@@ -29,13 +29,17 @@ const ShowPage = async ({ params }: Props) => {
   }
   return (
     <div className="relative">
-      <div className="absolute top-0 left-0 w-full h-full brightness-[0.25]">
-        <img
+      <div className="absolute left-0 top-0 h-full w-full brightness-[0.25]">
+        <Image
           src={IMG_URL(show.backdrop_path)}
-          className="w-full h-full object-cover"
+          priority
+          alt="movie backdrop"
+          className="h-full w-full object-cover"
+          fill
+          sizes="100vw"
         />
       </div>
-      <Container className="relative h-full sm:flex py-10 sm:py-20">
+      <Container className="relative h-full py-10 sm:flex sm:py-20">
         <div className="flex flex-col items-center justify-center">
           <Image
             height={450}
@@ -44,21 +48,21 @@ const ShowPage = async ({ params }: Props) => {
             src={IMG_URL(show.poster_path)}
             placeholder="blur"
             blurDataURL={`/_next/image?url=${IMG_URL(
-              show.poster_path
+              show.poster_path,
             )}&w=16&q=1`}
           />
 
           {/* {session && <FriendActivity type={type} id={showId} />} */}
         </div>
-        <div className="flex-1 flex flex-col mt-4 sm:mt-0 sm:max-w-2xl sm:ml-8">
+        <div className="mt-4 flex flex-1 flex-col sm:ml-8 sm:mt-0 sm:max-w-2xl">
           <div className="flex">
             <p className="text-3xl font-semibold">
               {show.name}{" "}
               <span className="text-2xl">
                 ({show.first_air_date?.split("-")[0]}-
-                {show.status === "Ended" &&
-                  show.last_air_date &&
-                  show.last_air_date.split("-")[0]}
+                {show.status === "Ended" && show.last_air_date
+                  ? show.last_air_date.split("-")[0]
+                  : null}
                 )
               </span>
             </p>
@@ -70,7 +74,7 @@ const ShowPage = async ({ params }: Props) => {
                 <Link
                   href={`/shows?genres=${genre.name
                     ?.split(" ")[0]
-                    .toLowerCase()}`}
+                    ?.toLowerCase()}`}
                   className="hover:underline "
                 >
                   {genre.name}
@@ -126,7 +130,7 @@ const ShowPage = async ({ params }: Props) => {
           </div> */}
 
           <div>
-            <p className="text-2xl font-medium my-2">Overview</p>
+            <p className="my-2 text-2xl font-medium">Overview</p>
             <Text>
               {show.overview ? show.overview : "There's no available overview."}
             </Text>

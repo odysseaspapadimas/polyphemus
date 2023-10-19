@@ -1,11 +1,12 @@
 "use client";
 
 import { Popover, RingProgress, Text } from "@mantine/core";
+import type { MovieResponse } from "moviedb-promise";
 
 type Props = {
   vote_average?: number;
   vote_count?: number;
-  media: any;
+  media: MovieResponse;
 };
 const RatingRing = ({ vote_average = 0, vote_count = 0, media }: Props) => {
   return (
@@ -19,7 +20,7 @@ const RatingRing = ({ vote_average = 0, vote_count = 0, media }: Props) => {
             },
           ]}
           size={100}
-          className="rounded-full bg-black bg-opacity-50 my-4 sm:my-0 cursor-pointer hover:scale-110 transition-transform duration-200"
+          className="my-4 cursor-pointer rounded-full bg-black bg-opacity-50 transition-transform duration-200 hover:scale-110 sm:my-0"
           label={
             <Text fw={700} ta="center" size="lg">
               {Math.round(vote_average * 10)}
@@ -40,7 +41,8 @@ const RatingRing = ({ vote_average = 0, vote_count = 0, media }: Props) => {
             {vote_count === 1 ? "rating" : "ratings"}
           </p>
           <p>
-            Polyphemus: {new Intl.NumberFormat("en-IN").format(media?.vote_count)}{" "}
+            Polyphemus:{" "}
+            {new Intl.NumberFormat("en-IN").format(media?.vote_count ?? 0)}{" "}
             {media?.vote_count === 1 ? "rating" : "ratings"}
           </p>
         </div>

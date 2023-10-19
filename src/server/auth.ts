@@ -1,5 +1,4 @@
 import { PrismaAdapter } from "@next-auth/prisma-adapter";
-import { DrizzleAdapter } from "@auth/drizzle-adapter";
 
 import {
   getServerSession,

@@ -22,7 +22,7 @@ dependencies:
     version: 1.0.7(@prisma/client@5.4.2)(next-auth@4.23.0)
   '@t3-oss/env-nextjs':
     specifier: ^0.7.0
-    version: 0.7.0(typescript@5.1.6)(zod@3.21.4)
+    version: 0.7.0(typescript@5.1.6)(zod@3.21.1)
   '@tabler/icons-react':
     specifier: ^2.39.0
     version: 2.39.0(react@18.2.0)
@@ -49,7 +49,7 @@ dependencies:
     version: 0.28.6(@vercel/postgres@0.5.0)(pg@8.11.3)
   drizzle-zod:
     specifier: ^0.5.1
-    version: 0.5.1(drizzle-orm@0.28.6)(zod@3.21.4)
+    version: 0.5.1(drizzle-orm@0.28.6)(zod@3.21.1)
   moviedb-promise:
     specifier: ^4.0.3
     version: 4.0.3
@@ -72,11 +72,11 @@ dependencies:
     specifier: ^1.13.1
     version: 1.13.1
   zod:
-    specifier: ^3.21.4
-    version: 3.21.4
+    specifier: ^3.21.1
+    version: 3.21.1
   zod-prisma-types:
-    specifier: ^2.7.13
-    version: 2.7.13
+    specifier: ^2.7.7
+    version: 2.7.7
 
 devDependencies:
   '@prisma/client':
@@ -743,7 +743,7 @@ packages:
       tslib: 2.6.2
     dev: false
 
-  /@t3-oss/env-core@0.7.0(typescript@5.1.6)(zod@3.21.4):
+  /@t3-oss/env-core@0.7.0(typescript@5.1.6)(zod@3.21.1):
     resolution: {integrity: sha512-cgunN82CqgQOOyuMOK/bGtujX5/ooXQTwGMJVWI6mCowq6WE5EgRLOqF/DRcrElI0gSFGA9i9GrxzCnk73HZLQ==}
     peerDependencies:
       typescript: '>=4.7.2'
@@ -753,10 +753,10 @@ packages:
         optional: true
     dependencies:
       typescript: 5.1.6
-      zod: 3.21.4
+      zod: 3.21.1
     dev: false
 
-  /@t3-oss/env-nextjs@0.7.0(typescript@5.1.6)(zod@3.21.4):
+  /@t3-oss/env-nextjs@0.7.0(typescript@5.1.6)(zod@3.21.1):
     resolution: {integrity: sha512-rjQIt6P3tac2eRx4BNQLNaJ+AIb2P8wXw4uFvYbEekqMGShikkUALnX3hUn1twYiGVGHXRm6UbU+LqtjIktuGg==}
     peerDependencies:
       typescript: '>=4.7.2'
@@ -765,9 +765,9 @@ packages:
       typescript:
         optional: true
     dependencies:
-      '@t3-oss/env-core': 0.7.0(typescript@5.1.6)(zod@3.21.4)
+      '@t3-oss/env-core': 0.7.0(typescript@5.1.6)(zod@3.21.1)
       typescript: 5.1.6
-      zod: 3.21.4
+      zod: 3.21.1
     dev: false
 
   /@tabler/icons-react@2.39.0(react@18.2.0):
@@ -1669,14 +1669,14 @@ packages:
       pg: 8.11.3
     dev: false
 
-  /drizzle-zod@0.5.1(drizzle-orm@0.28.6)(zod@3.21.4):
+  /drizzle-zod@0.5.1(drizzle-orm@0.28.6)(zod@3.21.1):
     resolution: {integrity: sha512-C/8bvzUH/zSnVfwdSibOgFjLhtDtbKYmkbPbUCq46QZyZCH6kODIMSOgZ8R7rVjoI+tCj3k06MRJMDqsIeoS4A==}
     peerDependencies:
       drizzle-orm: '>=0.23.13'
       zod: '*'
     dependencies:
       drizzle-orm: 0.28.6(@vercel/postgres@0.5.0)(pg@8.11.3)
-      zod: 3.21.4
+      zod: 3.21.1
     dev: false
 
   /electron-to-chromium@1.4.556:
@@ -4300,8 +4300,8 @@ packages:
     engines: {node: '>=10'}
     dev: true
 
-  /zod-prisma-types@2.7.13:
-    resolution: {integrity: sha512-HuGrm333z/7yDnJ2ZCXTJmkTREzRpOSj5koNCNQkaqm/RxbQfv2HqAMeX9DX7KeEvMiYBb6alggSNo3Z/wXbJQ==}
+  /zod-prisma-types@2.7.7:
+    resolution: {integrity: sha512-SehF9kmtCL8yUz2YEa2StM0k/iuvr/sTreY5p93RJnA2LaudSN6jHcTxFQmwkMvvEY8EydDTartc0pNE8DK7Zg==}
     hasBin: true
     dependencies:
       '@prisma/generator-helper': 5.4.2
@@ -4312,8 +4312,8 @@ packages:
       - supports-color
     dev: false
 
-  /zod@3.21.4:
-    resolution: {integrity: sha512-m46AKbrzKVzOzs/DZgVnG5H55N1sv1M8qZU3A8RIKbs3mrACDNeIOeilDymVb2HdmP8uwshOCF4uJ8uM9rCqJw==}
+  /zod@3.21.1:
+    resolution: {integrity: sha512-+dTu2m6gmCbO9Ahm4ZBDapx2O6ZY9QSPXst2WXjcznPMwf2YNpn3RevLx4KkZp1OPW/ouFcoBtBzFz/LeY69oA==}
     dev: false
 
   /zod@3.22.4:

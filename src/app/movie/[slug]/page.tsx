@@ -97,12 +97,13 @@ const MoviePage = async ({ params }: Props) => {
                 media={movie}
               />
 
-              <UserActions
-                mediaId={movie.id!}
-                mediaType="MOVIE"
-                status={status}
-              />
-
+              {status !== undefined && (
+                <UserActions
+                  mediaId={movie.id!}
+                  mediaType="MOVIE"
+                  status={status}
+                />
+              )}
               {/* {user && (
               <div className="flex flex-col space-y-4 sm:ml-8">
                 <div className="flex justify-around items-center space-x-8">
@@ -156,10 +157,16 @@ const getMovieInfo = async (slug: string) => {
 };
 
 const getInitialStatus = async (id: number) => {
-  const { status } = (await api.list.getEntry.query({
-    mediaId: id,
-    mediaType: "MOVIE",
-  })) ?? { status: null };
+  try {
+    const { status } = (await api.list.getEntry.query({
+      mediaId: id,
+      mediaType: "MOVIE",
+    })) ?? { status: null };
 
-  return status;
+    console.log(status, "status");
+
+    return status;
+  } catch (error) {
+    return undefined;
+  }
 };

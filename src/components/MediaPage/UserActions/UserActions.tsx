@@ -23,7 +23,6 @@ const UserActions = ({ mediaId, mediaType, status }: Props) => {
   const addToList = useAddToList();
 
   const removeFromList = useRemoveFromList();
-  const utils = api.useContext();
 
   const handleList = async ({ status }: { status: Status }) => {
     //handle watching
