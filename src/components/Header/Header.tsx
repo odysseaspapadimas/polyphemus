@@ -1,6 +1,4 @@
-import { AppShellHeader, Avatar, Button, Container, Menu } from "@mantine/core";
-import { signIn } from "next-auth/react";
-import Image from "next/image";
+import { Container } from "@mantine/core";
 import Link from "next/link";
 import HeaderMenu from "./HeaderMenu";
 import { getServerAuthSession } from "src/server/auth";

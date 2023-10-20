@@ -36,7 +36,7 @@ const ShowPage = async ({ params }: Props) => {
 
   return (
     <div className="relative">
-      <div className="absolute left-0 top-0 h-full w-full brightness-[0.25]">
+      <div className="absolute left-0 top-0 h-full md:h-screen-header w-full brightness-[0.25]">
         <Image
           src={IMG_URL(show.backdrop_path)}
           priority

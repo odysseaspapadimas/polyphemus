@@ -25,6 +25,8 @@
     "@trpc/react-query": "^10.37.1",
     "@trpc/server": "^10.37.1",
     "@vercel/postgres": "^0.5.0",
+    "better-trakt": "^0.9.1",
+    "dayjs": "^1.11.10",
     "drizzle-orm": "^0.28.6",
     "drizzle-zod": "^0.5.1",
     "moviedb-promise": "^4.0.3",

@@ -13,6 +13,9 @@ export default {
       fontFamily: {
         sans: ["var(--font-sans)", ...fontFamily.sans],
       },
+      height: {
+        "screen-header": "calc(100vh - 71px)",
+      },
     },
   },
   plugins: [],

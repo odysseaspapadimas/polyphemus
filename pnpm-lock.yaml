@@ -44,6 +44,12 @@ dependencies:
   '@vercel/postgres':
     specifier: ^0.5.0
     version: 0.5.0
+  better-trakt:
+    specifier: ^0.9.1
+    version: 0.9.1
+  dayjs:
+    specifier: ^1.11.10
+    version: 1.11.10
   drizzle-orm:
     specifier: ^0.28.6
     version: 0.28.6(@vercel/postgres@0.5.0)(pg@8.11.3)
@@ -1270,6 +1276,14 @@ packages:
     resolution: {integrity: sha512-3oSeUO0TMV67hN1AmbXsK4yaqU7tjiHlbxRDZOpH0KW9+CeX4bRAaX0Anxt0tx2MrpRpWwQaPwIlISEJhYU5Pw==}
     dev: true
 
+  /better-trakt@0.9.1:
+    resolution: {integrity: sha512-xuM2+I+MpI4aT8tbuCylVV7p+95A3t8fUUrxUZ8s8kb5bI6vwTf+YbPjbyDtaj6OuR8lYn6vVXEjBQRqs3ZByA==}
+    dependencies:
+      axios: 1.5.1
+    transitivePeerDependencies:
+      - debug
+    dev: false
+
   /binary-extensions@2.2.0:
     resolution: {integrity: sha512-jDctJ/IVQbZoJykoeHbhXpOlNBqGNcwXJKJog42E5HDPUwQTSdjCHdihjj0DlnheQ7blbT6dHOafNAiS8ooQKA==}
     engines: {node: '>=8'}
@@ -1477,6 +1491,10 @@ packages:
   /damerau-levenshtein@1.0.8:
     resolution: {integrity: sha512-sdQSFB7+llfUcQHUQO3+B8ERRj0Oa4w9POWMI/puGtuf7gFywGmkaLCElnudfTiKZV+NvHqL0ifzdrI8Ro7ESA==}
     dev: true
+
+  /dayjs@1.11.10:
+    resolution: {integrity: sha512-vjAczensTgRcqDERK0SR2XMwsF/tSvnvlv6VcF2GIhg6Sx4yOIt/irsr1RDJsKiIyBzJDpCoXiWWq28MqH2cnQ==}
+    dev: false
 
   /debug@3.2.7:
     resolution: {integrity: sha512-CFjzYYAi4ThfiQvizrFQevTTXHtnCqWfe7x1AhgEscTz6ZbLbfoLRLPugTQyBth6f8ZERVUSyWHFD/7Wu4t1XQ==}

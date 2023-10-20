@@ -25,6 +25,14 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 const MoviePage = async ({ params }: Props) => {
+
+  function delay(ms: number): Promise<void> {
+    return new Promise((resolve) => {
+      setTimeout(resolve, ms);
+    });
+  }
+
+  // await delay(1000);
   const movie = await getMovieInfo(params.slug);
 
   if (!params.slug.split("-").slice(1).join("-")) {
@@ -36,7 +44,7 @@ const MoviePage = async ({ params }: Props) => {
   return (
     <>
       <div className="relative">
-        <div className="absolute left-0 top-0 h-full w-full brightness-[0.25]">
+        <div className="absolute left-0 top-0 h-full md:h-screen-header w-full brightness-[0.25]">
           <Image
             src={IMG_URL(movie.backdrop_path)}
             priority
