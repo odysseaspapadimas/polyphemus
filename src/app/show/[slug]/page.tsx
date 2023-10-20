@@ -11,6 +11,7 @@ import type { Metadata } from "next";
 import { api } from "src/trpc/server";
 import RatingRing from "src/components/Media/RatingRing";
 import UserActions from "src/components/MediaPage/UserActions/UserActions";
+import { trakt } from "src/utils/trakt";
 
 type Props = {
   params: {
@@ -26,6 +27,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 const ShowPage = async ({ params }: Props) => {
+
   const show = await getShowInfo(params.slug);
 
   if (!params.slug.split("-").slice(1).join("-")) {
@@ -33,6 +35,8 @@ const ShowPage = async ({ params }: Props) => {
   }
 
   const status = await getInitialStatus(show.id!);
+
+  await getAirTime(params.slug)
 
   return (
     <div className="relative">
@@ -218,3 +222,11 @@ const getInitialStatus = async (id: number) => {
     return undefined;
   }
 };
+
+const getAirTime = async (slug: string) => {
+  const name = slug.split("-").slice(0, -1).join("-");
+  console.log(name, 'name')
+  const {data: show} = await trakt.shows.summary({showId: name})
+
+  console.log(show.airs, 'airs')
+}
