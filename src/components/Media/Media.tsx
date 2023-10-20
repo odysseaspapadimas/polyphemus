@@ -11,7 +11,7 @@ const isMovie = (data: MovieResult | TvResult): data is MovieResult => {
 
 const Media = async ({ data }: { data: MovieResult | TvResult }) => {
   let name, release_date, link;
-  let type = "movie";
+  // let type = "movie"; not used yet
 
   if (isMovie(data)) {
     data = data as MovieResult;
@@ -20,7 +20,7 @@ const Media = async ({ data }: { data: MovieResult | TvResult }) => {
     link = "/movie/" + slug(data.title!) + "-" + data.id;
   } else {
     data = data as TvResult;
-    type = "show";
+    // type = "show";
     name = data.name;
     release_date = data.first_air_date?.split("-")[0];
     link = "/show/" + slug(data.name!) + "-" + data.id;
@@ -31,27 +31,25 @@ const Media = async ({ data }: { data: MovieResult | TvResult }) => {
   return (
     <div>
       <div className="relative">
-        {data.vote_average && (
-          <div
-            className="absolute top-2 left-2 z-10 rounded-full grid place-items-center border-[3px] h-[34px] w-[34px]"
-            style={{
-              backgroundColor: "rgba(0, 0, 0, 0.5)",
-              borderColor: `hsl(${(115 * data.vote_average) / 10}, 100%, 28%)`,
-            }}
-          >
-            <span>{Math.round(data.vote_average * 10) / 10}</span>
-          </div>
-        )}
+        <div
+          className="absolute left-2 top-2 z-10 grid h-[34px] w-[34px] place-items-center rounded-full border-[3px]"
+          style={{
+            backgroundColor: "rgba(0, 0, 0, 0.5)",
+            borderColor: `hsl(${(115 * (data.vote_average ?? 0)) / 10}, 100%, 28%)`,
+          }}
+        >
+          <span>{Math.round((data.vote_average ?? 0 )* 10) / 10}</span>
+        </div>
         <Link href={link}>
           <Image
             alt="movie poster"
             src={`https://image.tmdb.org/t/p/w500${data.poster_path}`}
             width={175}
             height={262.5}
-            className="border border-transparent hover:border-sky-300 transition-all duration-200 ease-in-out "
+            className="border border-transparent transition-all duration-200 ease-in-out hover:border-sky-300 "
           />
         </Link>
-        {session && <MediaMenu />}
+        {session && <MediaMenu mediaId={data.id!} mediaType={isMovie(data) ? "MOVIE" : "SHOW"} />}
       </div>
       <h2 className="font-semibold">
         {name} ({release_date})

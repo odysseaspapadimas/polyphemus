@@ -5,8 +5,6 @@ const useAddToList = () => {
   const addToList = api.list.add.useMutation({
     onMutate: async ({ mediaId, mediaType, status }) => {
       await utils.list.getEntry.cancel();
-
-      console.log('setdata')
       utils.list.getEntry.setData({ mediaId, mediaType }, () => ({ status }));
     },
     onSuccess: async ({ mediaId, mediaType }) => {

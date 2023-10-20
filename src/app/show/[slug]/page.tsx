@@ -8,6 +8,9 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import slug from "src/utils/slug";
 import type { Metadata } from "next";
+import { api } from "src/trpc/server";
+import RatingRing from "src/components/Media/RatingRing";
+import UserActions from "src/components/MediaPage/UserActions/UserActions";
 
 type Props = {
   params: {
@@ -24,9 +27,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 const ShowPage = async ({ params }: Props) => {
   const show = await getShowInfo(params.slug);
+
   if (!params.slug.split("-").slice(1).join("-")) {
     redirect(`/show/${slug(show.name)}-${show.id}`);
   }
+
+  const status = await getInitialStatus(show.id!);
+
   return (
     <div className="relative">
       <div className="absolute left-0 top-0 h-full w-full brightness-[0.25]">
@@ -96,6 +103,22 @@ const ShowPage = async ({ params }: Props) => {
               </span>{" "}
             </div>
           )} */}
+
+          <div className="flex flex-col items-center sm:my-4 sm:flex-row">
+            <RatingRing
+              vote_average={show.vote_average}
+              vote_count={show.vote_count}
+              media={show}
+            />
+
+            {status !== undefined && (
+              <UserActions
+                mediaId={show.id!}
+                mediaType="SHOW"
+                status={status}
+              />
+            )}
+          </div>
 
           {/* <div className="flex items-center flex-col sm:flex-row sm:py-4">
             <RatingRing
@@ -181,4 +204,17 @@ const getShowInfo = async (slug: string) => {
 
   const show = await tmdb.tvInfo({ id: id });
   return show;
+};
+
+const getInitialStatus = async (id: number) => {
+  try {
+    const { status } = (await api.list.getEntry.query({
+      mediaId: id,
+      mediaType: "SHOW",
+    })) ?? { status: null };
+
+    return status;
+  } catch (error) {
+    return undefined;
+  }
 };

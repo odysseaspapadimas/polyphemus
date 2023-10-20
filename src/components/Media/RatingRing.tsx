@@ -1,12 +1,12 @@
 "use client";
 
 import { Popover, RingProgress, Text } from "@mantine/core";
-import type { MovieResponse } from "moviedb-promise";
+import type { MovieResponse, ShowResponse } from "moviedb-promise";
 
 type Props = {
   vote_average?: number;
   vote_count?: number;
-  media: MovieResponse;
+  media: MovieResponse | ShowResponse;
 };
 const RatingRing = ({ vote_average = 0, vote_count = 0, media }: Props) => {
   return (

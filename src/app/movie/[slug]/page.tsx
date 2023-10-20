@@ -163,8 +163,6 @@ const getInitialStatus = async (id: number) => {
       mediaType: "MOVIE",
     })) ?? { status: null };
 
-    console.log(status, "status");
-
     return status;
   } catch (error) {
     return undefined;
