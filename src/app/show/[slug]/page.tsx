@@ -15,15 +15,26 @@ import { trakt } from "src/utils/trakt";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
 import timezone from "dayjs/plugin/timezone";
-import { env } from "src/env.mjs";
+import customParseFormat from "dayjs/plugin/customParseFormat";
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
+dayjs.extend(customParseFormat);
 
 type Props = {
   params: {
     slug: string;
   };
+};
+
+const dayNameToNumber: Record<string, number> = {
+  Sunday: 0,
+  Monday: 1,
+  Tuesday: 2,
+  Wednesday: 3,
+  Thursday: 4,
+  Friday: 5,
+  Saturday: 6,
 };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -44,19 +55,15 @@ const ShowPage = async ({ params }: Props) => {
 
   const airTime = await getAirTime(params.slug);
 
-  // if (airTime) {
-  //   const sourceDate = show.next_episode_to_air.air_date + " " + airTime.time;
-  //   dayjs.tz.setDefault(airTime.timezone);
-
-  //   const nextAirDate = dayjs.tz(sourceDate).local().toDate();
-
-  //   console.log(
-  //     `${dayjs(nextAirDate).format("dddd")}s at ${dayjs(nextAirDate).format(
-  //       "HH:mm",
-  //     )}`,
-  //     "nextAirDate",
-  //   );
-  // }
+  const { nextAirDate } = getAirDates(
+    airTime,
+    //@ts-expect-error package ts error
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+    show.next_episode_to_air?.air_date,
+    //@ts-expect-error package ts error
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+    show.last_episode_to_air?.air_date,
+  );
 
   return (
     <div className="relative">
@@ -118,7 +125,7 @@ const ShowPage = async ({ params }: Props) => {
             )}
           </div>
 
-          {/* {nextAirDate && show.status !== "Ended" && (
+          {nextAirDate && show.status !== "Ended" && (
             <div>
               Airs:{" "}
               <span>
@@ -126,7 +133,7 @@ const ShowPage = async ({ params }: Props) => {
                 {dayjs(nextAirDate).format("HH:mm")}
               </span>{" "}
             </div>
-          )} */}
+          )}
 
           <div className="flex flex-col items-center sm:my-4 sm:flex-row">
             <RatingRing
@@ -251,4 +258,69 @@ const getAirTime = async (slug: string) => {
   if (show?.airs) {
     return show?.airs;
   }
+};
+
+const getAirDates = (
+  airTime: { day: string; time: string; timezone: string } | undefined,
+  next_episode_air_date: string,
+  last_episode_air_date: string,
+) => {
+  let nextAirDate: Date | undefined;
+  let lastAirDate: Date | undefined;
+
+  if (airTime && next_episode_air_date) {
+    const localTimeZone = dayjs.tz.guess(); // Get the local timezone
+    const sourceTime = dayjs.tz(airTime.time, "HH:mm", airTime.timezone);
+
+    // Find the number corresponding to the provided day of the week
+    const dayNumber = dayNameToNumber[airTime.day]!;
+
+    // Parse the next episode air date in the source timezone
+    const sourceDate = dayjs.tz(next_episode_air_date, airTime.timezone);
+
+    // Calculate the difference in days to the provided day of the week
+    const daysUntilTargetDay = (dayNumber - sourceDate.day() + 7) % 7;
+
+    // Calculate the target date
+    const targetDate = sourceDate.add(daysUntilTargetDay, "day");
+
+    // Combine the target date and time, explicitly specifying your local timezone
+    const combinedDateTime = dayjs
+      .tz(
+        targetDate.format("YYYY-MM-DD") + " " + sourceTime.format("HH:mm"),
+        airTime.timezone,
+      )
+      .tz(localTimeZone);
+
+    nextAirDate = combinedDateTime.toDate();
+  }
+
+  if (airTime && last_episode_air_date) {
+    const localTimeZone = dayjs.tz.guess(); // Get the local timezone
+    const sourceTime = dayjs.tz(airTime.time, "HH:mm", airTime.timezone);
+
+    // Find the number corresponding to the provided day of the week
+    const dayNumber = dayNameToNumber[airTime.day]!;
+
+    // Parse the next episode air date in the source timezone
+    const sourceDate = dayjs.tz(last_episode_air_date, airTime.timezone);
+
+    // Calculate the difference in days to the provided day of the week
+    const daysUntilTargetDay = (dayNumber - sourceDate.day() + 7) % 7;
+
+    // Calculate the target date
+    const targetDate = sourceDate.add(daysUntilTargetDay, "day");
+
+    // Combine the target date and time, explicitly specifying your local timezone
+    const combinedDateTime = dayjs
+      .tz(
+        targetDate.format("YYYY-MM-DD") + " " + sourceTime.format("HH:mm"),
+        airTime.timezone,
+      )
+      .tz(localTimeZone);
+
+    lastAirDate = combinedDateTime.toDate();
+  }
+
+  return { nextAirDate, lastAirDate };
 };
