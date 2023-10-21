@@ -9,9 +9,15 @@ const Header = async () => {
   return (
     <header className="border-b border-[#2C2E33]">
       <Container size="md" h={70} className="flex items-center justify-between">
-        <Link href="/" className="font-bold text-2xl text-white">
-          Polyphemus
-        </Link>
+        <div className="flex items-center justify-center">
+          <Link href="/" className="text-2xl font-bold text-white">
+            Polyphemus
+          </Link>
+
+          <div className="ml-6">
+            <Link href="/shows">Shows</Link>
+          </div>
+        </div>
 
         <HeaderMenu session={session} />
       </Container>

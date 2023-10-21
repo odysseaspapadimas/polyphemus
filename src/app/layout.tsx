@@ -7,9 +7,10 @@ import { headers } from "next/headers";
 import { TRPCReactProvider } from "src/trpc/react";
 import { ColorSchemeScript, MantineProvider } from "@mantine/core";
 import Header from "src/components/Header/Header";
+import { SessionProvider } from "next-auth/react";
+import { AuthProvider } from "src/components/AuthProvider";
 
 const inter = Manrope({ subsets: ["latin"] });
-
 
 export const metadata = {
   title: "Polyphemus",
@@ -50,7 +51,7 @@ export default function RootLayout({
             }}
           >
             <Header />
-            {children}
+            <AuthProvider>{children}</AuthProvider>
           </MantineProvider>
         </TRPCReactProvider>
       </body>

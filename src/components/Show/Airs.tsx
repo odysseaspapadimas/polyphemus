@@ -32,10 +32,15 @@ type Props = {
     | undefined;
 };
 const Airs = ({ nextEpisodeAirDate, airTime }: Props) => {
-  const [nextAirDate, setNextAirDate] = useState<Date | undefined>(undefined);
+  const [nextAirDate, setNextAirDate] = useState<Date | null>(null);
 
   useEffect(() => {
-    if (!airTime) return;
+    if (!airTime?.day || !airTime.time || !airTime.timezone) {
+      setNextAirDate(null);
+      return;
+    }
+
+    console.log(nextEpisodeAirDate, airTime, "airtime");
     const localTimeZone = dayjs.tz.guess(); // Get the local timezone
     const sourceTime = dayjs.tz(airTime.time, "HH:mm", airTime.timezone);
 
@@ -62,18 +67,16 @@ const Airs = ({ nextEpisodeAirDate, airTime }: Props) => {
     setNextAirDate(combinedDateTime.toDate());
   }, [nextEpisodeAirDate, airTime]);
 
-  return (
-    nextAirDate ? (
-      <div>
-        Airs:{" "}
-        <span>
-          {dayjs(nextAirDate).format("dddd")}s at{" "}
-          {dayjs(nextAirDate).format("HH:mm")}
-        </span>
-      </div>
-    ) : (
-        <Skeleton width={150} height={20} mt={4} />
-    )
-  );
+  return nextAirDate ? (
+    <div>
+      Airs:{" "}
+      <span>
+        {dayjs(nextAirDate).format("dddd")}s at{" "}
+        {dayjs(nextAirDate).format("HH:mm")}
+      </span>
+    </div>
+  ) : nextAirDate !== null ? (
+    <Skeleton width={150} height={20} mt={4} />
+  ) : null;
 };
 export default Airs;

@@ -1,15 +1,18 @@
+"use client";
+
 import type { MovieResult, TvResult } from "moviedb-promise";
 import Image from "next/image";
 import Link from "next/link";
 import MediaMenu from "./MediaMenu";
 import slug from "src/utils/slug";
 import { getServerAuthSession } from "src/server/auth";
+import { useSession } from "next-auth/react";
 
 const isMovie = (data: MovieResult | TvResult): data is MovieResult => {
   return "title" in data;
 };
 
-const Media = async ({ data }: { data: MovieResult | TvResult }) => {
+const Media = ({ data }: { data: MovieResult | TvResult }) => {
   let name, release_date, link;
   // let type = "movie"; not used yet
 
@@ -26,19 +29,21 @@ const Media = async ({ data }: { data: MovieResult | TvResult }) => {
     link = "/show/" + slug(data.name!) + "-" + data.id;
   }
 
-  const session = await getServerAuthSession();
+  const session = useSession();
 
   return (
-    <div>
-      <div className="relative">
+    <div className="w-[140px] sm:w-[150px]">
+      <div className="relative ">
         <div
           className="absolute left-2 top-2 z-10 grid h-[34px] w-[34px] place-items-center rounded-full border-[3px]"
           style={{
             backgroundColor: "rgba(0, 0, 0, 0.5)",
-            borderColor: `hsl(${(115 * (data.vote_average ?? 0)) / 10}, 100%, 28%)`,
+            borderColor: `hsl(${
+              (115 * (data.vote_average ?? 0)) / 10
+            }, 100%, 28%)`,
           }}
         >
-          <span>{Math.round((data.vote_average ?? 0 )* 10) / 10}</span>
+          <span>{Math.round((data.vote_average ?? 0) * 10) / 10}</span>
         </div>
         <Link href={link}>
           <Image
@@ -49,9 +54,14 @@ const Media = async ({ data }: { data: MovieResult | TvResult }) => {
             className="border border-transparent transition-all duration-200 ease-in-out hover:border-sky-300 "
           />
         </Link>
-        {session && <MediaMenu mediaId={data.id!} mediaType={isMovie(data) ? "MOVIE" : "SHOW"} />}
+        {session && (
+          <MediaMenu
+            mediaId={data.id!}
+            mediaType={isMovie(data) ? "MOVIE" : "SHOW"}
+          />
+        )}
       </div>
-      <h2 className="font-semibold">
+      <h2 className="whitespace-pre-wrap font-semibold">
         {name} ({release_date})
       </h2>
     </div>

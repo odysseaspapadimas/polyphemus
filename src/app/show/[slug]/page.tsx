@@ -56,8 +56,6 @@ const ShowPage = async ({ params }: Props) => {
 
   const airTime = await getAirTime(params.slug);
 
-  
-
   return (
     <div className="relative">
       <div className="absolute left-0 top-0 h-full w-full brightness-[0.25] md:h-screen-header">
@@ -251,6 +249,7 @@ const getAirTime = async (slug: string) => {
   }
 };
 
+//eslint-disable-next-line
 const getAirDates = (
   airTime: { day: string; time: string; timezone: string } | undefined,
   next_episode_air_date: string,
