@@ -16,6 +16,7 @@ import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
 import timezone from "dayjs/plugin/timezone";
 import customParseFormat from "dayjs/plugin/customParseFormat";
+import Airs from "src/components/Show/Airs";
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
@@ -55,15 +56,7 @@ const ShowPage = async ({ params }: Props) => {
 
   const airTime = await getAirTime(params.slug);
 
-  const { nextAirDate } = getAirDates(
-    airTime,
-    //@ts-expect-error package ts error
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-    show.next_episode_to_air?.air_date,
-    //@ts-expect-error package ts error
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-    show.last_episode_to_air?.air_date,
-  );
+  
 
   return (
     <div className="relative">
@@ -124,15 +117,13 @@ const ShowPage = async ({ params }: Props) => {
               <>&bull; {show.episode_run_time}m</>
             )}
           </div>
-
-          {nextAirDate && show.status !== "Ended" && (
-            <div>
-              Airs:{" "}
-              <span>
-                {dayjs(nextAirDate).format("dddd")}s at{" "}
-                {dayjs(nextAirDate).format("HH:mm")}
-              </span>{" "}
-            </div>
+          {/*@ts-expect-error package ts error */}
+          {show.next_episode_to_air?.air_date && show.status !== "Ended" && (
+            <Airs
+              //@ts-expect-error package ts error
+              nextEpisodeAirDate={show.next_episode_to_air?.air_date as string}
+              airTime={airTime}
+            />
           )}
 
           <div className="flex flex-col items-center sm:my-4 sm:flex-row">
