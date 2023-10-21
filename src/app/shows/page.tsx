@@ -18,7 +18,7 @@ const ShowsPage = async () => {
 };
 export default ShowsPage;
 
-export const getShows = async (page: number) => {
+const getShows = async (page: number) => {
   const data = await tmdb.discoverTv({ page });
 
   return data;
