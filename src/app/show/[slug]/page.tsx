@@ -12,6 +12,13 @@ import { api } from "src/trpc/server";
 import RatingRing from "src/components/Media/RatingRing";
 import UserActions from "src/components/MediaPage/UserActions/UserActions";
 import { trakt } from "src/utils/trakt";
+import dayjs from "dayjs";
+import utc from "dayjs/plugin/utc";
+import timezone from "dayjs/plugin/timezone";
+import { env } from "src/env.mjs";
+
+dayjs.extend(utc);
+dayjs.extend(timezone);
 
 type Props = {
   params: {
@@ -27,7 +34,6 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 const ShowPage = async ({ params }: Props) => {
-
   const show = await getShowInfo(params.slug);
 
   if (!params.slug.split("-").slice(1).join("-")) {
@@ -36,11 +42,25 @@ const ShowPage = async ({ params }: Props) => {
 
   const status = await getInitialStatus(show.id!);
 
-  await getAirTime(params.slug)
+  const airTime = await getAirTime(params.slug);
+
+  // if (airTime) {
+  //   const sourceDate = show.next_episode_to_air.air_date + " " + airTime.time;
+  //   dayjs.tz.setDefault(airTime.timezone);
+
+  //   const nextAirDate = dayjs.tz(sourceDate).local().toDate();
+
+  //   console.log(
+  //     `${dayjs(nextAirDate).format("dddd")}s at ${dayjs(nextAirDate).format(
+  //       "HH:mm",
+  //     )}`,
+  //     "nextAirDate",
+  //   );
+  // }
 
   return (
     <div className="relative">
-      <div className="absolute left-0 top-0 h-full md:h-screen-header w-full brightness-[0.25]">
+      <div className="absolute left-0 top-0 h-full w-full brightness-[0.25] md:h-screen-header">
         <Image
           src={IMG_URL(show.backdrop_path)}
           priority
@@ -79,7 +99,7 @@ const ShowPage = async ({ params }: Props) => {
             </p>
           </div>
 
-          <div className="">
+          <div>
             {show.genres?.map((genre: Genre, i: number) => (
               <React.Fragment key={i}>
                 <Link
@@ -225,8 +245,10 @@ const getInitialStatus = async (id: number) => {
 
 const getAirTime = async (slug: string) => {
   const name = slug.split("-").slice(0, -1).join("-");
-  console.log(name, 'name')
-  const {data: show} = await trakt.shows.summary({showId: name})
+  console.log(name, "name");
+  const { data: show } = await trakt.shows.summary({ showId: name });
 
-  console.log(show.airs, 'airs')
-}
+  if (show?.airs) {
+    return show?.airs;
+  }
+};
