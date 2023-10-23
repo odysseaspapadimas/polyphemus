@@ -32,7 +32,7 @@ export default async function Home() {
             ))
             .slice(0, 12)}
         </div>
-        <h1 className="text-xl font-semibold border-b border-b-gray-600 mb-2">
+        <h1 className="mt-6 text-xl font-semibold border-b border-b-gray-600 mb-2">
           Trending TV Shows
         </h1>
         <div className="grid justify-items-center gap-y-3 md:space-y-0 w-full grid-cols-2 md:grid-cols-6 md:gap-2">
