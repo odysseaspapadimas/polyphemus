@@ -18,7 +18,7 @@ export default async function Home() {
   const shows = trendingShows.results as TvResult[];
 
   return (
-    <Container size="md" my={24}>
+    <Container size="md" my={36}>
       <main className="">
         <h1 className="text-xl font-semibold border-b border-b-gray-600 mb-2">
           Trending Movies

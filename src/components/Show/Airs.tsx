@@ -40,7 +40,6 @@ const Airs = ({ nextEpisodeAirDate, airTime }: Props) => {
       return;
     }
 
-    console.log(nextEpisodeAirDate, airTime, "airtime");
     const localTimeZone = dayjs.tz.guess(); // Get the local timezone
     const sourceTime = dayjs.tz(airTime.time, "HH:mm", airTime.timezone);
 

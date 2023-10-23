@@ -1,5 +1,5 @@
-import { Button, Center, Container } from "@mantine/core";
-import Link from "next/link";
+import { Container } from "@mantine/core";
+import LoadMore from "src/components/Discover/LoadMore";
 import MediaSection from "src/components/Discover/MediaSection";
 import Media from "src/components/Media/Media";
 import { api } from "src/trpc/server";
@@ -15,9 +15,8 @@ const MoviesPage = async ({ searchParams }: Props) => {
 
   const page = parseInt(searchParams.page ?? "1");
 
-  console.log(page, "page");
   return (
-    <Container my={40}>
+    <Container my={36}>
       <div className="relative grid grid-cols-[repeat(auto-fit,minmax(140px,1fr))] justify-items-center gap-y-2 sm:grid-cols-[repeat(auto-fit,minmax(150px,1fr))] md:gap-2">
         {movies?.map((movie) => <Media key={movie.id} data={movie} />)}
       </div>
@@ -31,11 +30,7 @@ const MoviesPage = async ({ searchParams }: Props) => {
           )}
       </div>
 
-      <Center className="py-8">
-        <Link href={`movies?page=${page + 1}`} scroll={false}>
-          <Button>Load More</Button>
-        </Link>
-      </Center>
+      <LoadMore />
     </Container>
   );
 };

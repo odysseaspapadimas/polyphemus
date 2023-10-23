@@ -21,10 +21,13 @@ type Props = {
 };
 
 const MediaMenu = ({ mediaId, mediaType }: Props) => {
-  const listEntryQuery = api.list.getEntry.useQuery({
-    mediaId,
-    mediaType,
-  });
+  const listEntryQuery = api.list.getEntry.useQuery(
+    {
+      mediaId,
+      mediaType,
+    },
+    { refetchOnWindowFocus: false },
+  );
 
   const addToList = useAddToList();
 
@@ -32,7 +35,7 @@ const MediaMenu = ({ mediaId, mediaType }: Props) => {
 
   const handleList = async (e: MouseEvent<HTMLButtonElement>) => {
     const value = e.currentTarget.innerText as keyof typeof listDict;
-    const status = listDict[value] as Status
+    const status = listDict[value] as Status;
 
     if (listEntryQuery.data?.status) {
       await removeFromList.mutateAsync({

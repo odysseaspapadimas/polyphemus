@@ -246,7 +246,6 @@ const getInitialStatus = async (id: number) => {
 
 const getAirTime = async (slug: string) => {
   const name = slug.split("-").slice(0, -1).join("-");
-  console.log(name, "name");
   const { data: show } = await trakt.shows.summary({ showId: name });
 
   if (show?.airs) {

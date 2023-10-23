@@ -1,7 +1,8 @@
-import { Container } from "@mantine/core";
+import { Container, Group } from "@mantine/core";
 import { getServerAuthSession } from "src/server/auth";
 import HeaderUserMenu from "./HeaderUserMenu";
 import HeaderMenu from "./HeaderMenu";
+import Search from "./Search";
 
 const Header = async () => {
   const session = await getServerAuthSession();
@@ -11,7 +12,10 @@ const Header = async () => {
       <Container size="md" h={70} className="flex items-center justify-between">
         <HeaderMenu />
 
-        <HeaderUserMenu session={session} />
+        <Group gap="lg">
+          <Search />
+          <HeaderUserMenu session={session} />
+        </Group>
       </Container>
     </header>
   );

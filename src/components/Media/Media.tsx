@@ -30,11 +30,15 @@ const Media = async ({ data }: { data: MovieResult | TvResult }) => {
 
   const session = await getServerAuthSession();
 
-  const buffer = await fetch(IMG_URL(data.poster_path)).then(async (res) =>
-    Buffer.from(await res.arrayBuffer()),
-  );
+  let base64;
+  if (data.poster_path) {
+    const buffer = await fetch(IMG_URL(data.poster_path)).then(async (res) =>
+      Buffer.from(await res.arrayBuffer()),
+    );
 
-  const { base64 } = await getPlaiceholder(buffer);
+    const res = await getPlaiceholder(buffer);
+    base64 = res.base64;
+  }
 
   return (
     <div className="w-[140px] sm:w-[150px]">
@@ -57,8 +61,8 @@ const Media = async ({ data }: { data: MovieResult | TvResult }) => {
             width={175}
             height={262.5}
             className={`border border-transparent transition-all duration-200 ease-in-out hover:border-sky-300 group-hover:opacity-75`}
-            placeholder="blur"
-            blurDataURL={base64}
+            // placeholder="blur"
+            // blurDataURL={base64}
           />
         </Link>
         {session && (
