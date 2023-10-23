@@ -1,8 +1,7 @@
 "use client";
 
-import { IconBrandGoogle } from "@tabler/icons-react";
 import { signIn } from "next-auth/react";
-import { SVGProps } from "react";
+import type { SVGProps } from "react";
 
 const SignInSignUp = () => {
   return (
@@ -11,10 +10,10 @@ const SignInSignUp = () => {
         aria-label="Continue with google"
         role="button"
         onClick={() => signIn("google")}
-        className="focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-gray-700 bg-white py-3.5 px-4 border rounded-lg border-gray-700 flex items-center"
+        className="flex items-center rounded-lg border border-gray-700 bg-white px-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-gray-700 focus:ring-offset-1"
       >
         <GoogleIcon className="h-6 w-6" />
-        <p className="text-base font-medium ml-4 text-gray-700">
+        <p className="ml-4 text-base font-medium text-gray-700">
           Continue with Google
         </p>
       </button>

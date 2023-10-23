@@ -10,6 +10,7 @@ import type { Metadata } from "next";
 import RatingRing from "src/components/Media/RatingRing";
 import UserActions from "src/components/MediaPage/UserActions/UserActions";
 import { api } from "src/trpc/server";
+import { getPlaiceholder } from "plaiceholder";
 
 type Props = {
   params: {
@@ -25,7 +26,6 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 const MoviePage = async ({ params }: Props) => {
-
   const movie = await getMovieInfo(params.slug);
 
   if (!params.slug.split("-").slice(1).join("-")) {
@@ -34,10 +34,16 @@ const MoviePage = async ({ params }: Props) => {
 
   const status = await getInitialStatus(movie.id!);
 
+  const buffer = await fetch(IMG_URL(movie.poster_path)).then(async (res) =>
+    Buffer.from(await res.arrayBuffer()),
+  );
+
+  const { base64 } = await getPlaiceholder(buffer);
+
   return (
     <>
       <div className="relative">
-        <div className="absolute left-0 top-0 h-full md:h-screen-header w-full brightness-[0.25]">
+        <div className="absolute left-0 top-0 h-full w-full brightness-[0.25] md:h-screen-header">
           <Image
             src={IMG_URL(movie.backdrop_path)}
             priority
@@ -53,12 +59,10 @@ const MoviePage = async ({ params }: Props) => {
               height={450}
               width={300}
               alt="movie poster"
-              src={IMG_URL(movie.poster_path)}
+              src={IMG_URL(movie.poster_path, 300)}
               className="flex-1 rounded-md"
               placeholder="blur"
-              blurDataURL={`/_next/image?url=${IMG_URL(
-                movie.poster_path,
-              )}&w=16&q=1`}
+              blurDataURL={base64}
             />
           </div>
 

@@ -17,6 +17,7 @@ import utc from "dayjs/plugin/utc";
 import timezone from "dayjs/plugin/timezone";
 import customParseFormat from "dayjs/plugin/customParseFormat";
 import Airs from "src/components/Show/Airs";
+import { getPlaiceholder } from "plaiceholder";
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
@@ -56,13 +57,19 @@ const ShowPage = async ({ params }: Props) => {
 
   const airTime = await getAirTime(params.slug);
 
+  const buffer = await fetch(IMG_URL(show.poster_path)).then(async (res) =>
+    Buffer.from(await res.arrayBuffer()),
+  );
+
+  const { base64 } = await getPlaiceholder(buffer);
+
   return (
     <div className="relative">
       <div className="absolute left-0 top-0 h-full w-full brightness-[0.25] md:h-screen-header">
         <Image
           src={IMG_URL(show.backdrop_path)}
           priority
-          alt="movie backdrop"
+          alt="show backdrop"
           className="h-full w-full object-cover"
           fill
           sizes="100vw"
@@ -74,11 +81,9 @@ const ShowPage = async ({ params }: Props) => {
             height={450}
             width={300}
             alt="show poster"
-            src={IMG_URL(show.poster_path)}
+            src={IMG_URL(show.poster_path, 300)}
             placeholder="blur"
-            blurDataURL={`/_next/image?url=${IMG_URL(
-              show.poster_path,
-            )}&w=16&q=1`}
+            blurDataURL={base64}
           />
 
           {/* {session && <FriendActivity type={type} id={showId} />} */}

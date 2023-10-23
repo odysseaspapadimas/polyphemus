@@ -1,66 +1,67 @@
 "use client";
 
-import { Avatar, Menu, MenuItem, Modal } from "@mantine/core";
-import Image from "next/image";
-import { useState } from "react";
-import SignInSignUp from "./SignInSignUp";
-import type { Session } from "next-auth";
+import { Burger, Drawer, Group } from "@mantine/core";
 import Link from "next/link";
-import { signOut } from "next-auth/react";
+import { useState } from "react";
 
-type Props = {
-  session: Session | null;
-};
-const HeaderMenu = ({ session }: Props) => {
-  const [opened, setOpened] = useState(false);
+const HeaderMenu = () => {
+  const [navOpened, setNavOpened] = useState(false);
   return (
-    <>
-      <Menu withArrow>
-        <Menu.Target>
-          <button className="hover:border-primary border border-transparent transition-all duration-200 ease-in-out">
-            <Avatar
-              src={session?.user.image ?? null}
-              alt="Avatar"
-              className="rounded-sm"
-              imageProps={{
-                referrerPolicy: "no-referrer",
-              }}
-            />
-          </button>
-        </Menu.Target>
-        <Menu.Dropdown>
-          {!session ? (
-            <Menu.Item
-              component="button"
-              onClick={() => {
-                setOpened(true);
-              }}
-            >
-              Sign-in
-            </Menu.Item>
-          ) : (
-            <>
-              <Menu.Item component={Link} href="/">
-                <h2 className="text-lg font-bold text-white">
-                  {session.user.name}
-                </h2>
-              </Menu.Item>
-
-              <MenuItem onClick={() => signOut()}>Sign-out</MenuItem>
-            </>
-          )}
-        </Menu.Dropdown>
-      </Menu>
-
-      <Modal
-        opened={opened}
-        onClose={() => setOpened(false)}
-        closeOnClickOutside
+    <div className="flex items-center justify-center">
+      <Drawer
+        opened={navOpened}
+        onClose={() => setNavOpened(false)}
+        onClick={() => setNavOpened(false)}
+        withCloseButton={false}
+        padding="xl"
+        size="75%"
+        styles={{
+          inner: {
+            marginTop: "71px",
+          },
+          overlay: {
+            marginTop: "71px",
+          },
+        }}
       >
-        <SignInSignUp />
-      </Modal>
-    </>
+        <NavLinks />
+      </Drawer>
+
+      <Group justify="space-between">
+        <div className="sm:hidden">
+          <Burger
+            opened={navOpened}
+            onClick={() => setNavOpened((o) => !o)}
+            size="sm"
+            className="!bg-transparent"
+          />
+        </div>
+        <Link href="/" className="text-2xl font-bold text-white">
+          Polyphemus
+        </Link>
+
+        <div className="hidden sm:block">
+          <div className="ml-6 flex-[2]">
+            <NavLinks />
+          </div>
+        </div>
+      </Group>
+    </div>
   );
 };
-
 export default HeaderMenu;
+
+const NavLinks = () => (
+  <div className="flex flex-col items-center space-y-4 text-xl sm:text-base md:flex-row md:space-x-4 md:space-y-0">
+    <Link href="/movies">
+      <span className="font-semibold text-gray-300 hover:text-white">
+        Movies
+      </span>
+    </Link>
+    <Link href="/shows">
+      <span className="font-semibold text-gray-300 hover:text-white">
+        Shows
+      </span>
+    </Link>
+  </div>
+);

@@ -1,18 +1,17 @@
-"use client";
-
 import type { MovieResult, TvResult } from "moviedb-promise";
 import Image from "next/image";
 import Link from "next/link";
 import MediaMenu from "./MediaMenu";
 import slug from "src/utils/slug";
 import { getServerAuthSession } from "src/server/auth";
-import { useSession } from "next-auth/react";
+import { IMG_URL } from "src/utils/tmdb";
+import { getPlaiceholder } from "plaiceholder";
 
 const isMovie = (data: MovieResult | TvResult): data is MovieResult => {
   return "title" in data;
 };
 
-const Media = ({ data }: { data: MovieResult | TvResult }) => {
+const Media = async ({ data }: { data: MovieResult | TvResult }) => {
   let name, release_date, link;
   // let type = "movie"; not used yet
 
@@ -29,7 +28,13 @@ const Media = ({ data }: { data: MovieResult | TvResult }) => {
     link = "/show/" + slug(data.name!) + "-" + data.id;
   }
 
-  const session = useSession();
+  const session = await getServerAuthSession();
+
+  const buffer = await fetch(IMG_URL(data.poster_path)).then(async (res) =>
+    Buffer.from(await res.arrayBuffer()),
+  );
+
+  const { base64 } = await getPlaiceholder(buffer);
 
   return (
     <div className="w-[140px] sm:w-[150px]">
@@ -48,10 +53,12 @@ const Media = ({ data }: { data: MovieResult | TvResult }) => {
         <Link href={link}>
           <Image
             alt="movie poster"
-            src={`https://image.tmdb.org/t/p/w500${data.poster_path}`}
+            src={IMG_URL(data.poster_path, 300)}
             width={175}
             height={262.5}
-            className="border border-transparent transition-all duration-200 ease-in-out hover:border-sky-300 "
+            className={`border border-transparent transition-all duration-200 ease-in-out hover:border-sky-300 group-hover:opacity-75`}
+            placeholder="blur"
+            blurDataURL={base64}
           />
         </Link>
         {session && (
