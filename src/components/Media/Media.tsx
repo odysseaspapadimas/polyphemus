@@ -61,8 +61,8 @@ const Media = async ({ data }: { data: MovieResult | TvResult }) => {
             width={175}
             height={262.5}
             className={`border border-transparent transition-all duration-200 ease-in-out hover:border-sky-300 group-hover:opacity-75`}
-            // placeholder="blur"
-            // blurDataURL={base64}
+            placeholder="blur"
+            blurDataURL={base64}
           />
         </Link>
         {session && (
