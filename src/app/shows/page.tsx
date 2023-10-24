@@ -2,7 +2,7 @@ import { Container } from "@mantine/core";
 import LoadMore from "src/components/Discover/LoadMore";
 import MediaSection from "src/components/Discover/MediaSection";
 import Media from "src/components/Media/Media";
-import { api } from "src/trpc/server";
+import { tmdb } from "src/utils/tmdb";
 
 type Props = {
   searchParams: {
@@ -11,7 +11,7 @@ type Props = {
 };
 
 const ShowsPage = async ({ searchParams }: Props) => {
-  const shows = await api.media.discover.query({ page: 1, type: "SHOW" });
+  const { results: shows } = await tmdb.discoverTv();
 
   const page = parseInt(searchParams.page ?? "1");
 
