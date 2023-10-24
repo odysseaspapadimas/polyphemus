@@ -30,7 +30,9 @@ const SearchPage = async ({ searchParams }: Props) => {
         {results?.map(
           (result) =>
             result.media_type !== "person" && (
-              <Media key={result.id} data={result} />
+              <div key={result.id}>
+                <p>{result.id}</p>
+              </div>
             ),
         )}
       </div>
