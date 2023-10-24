@@ -3,13 +3,13 @@
 @tailwind utilities;
 
 .mantine-Button-root {
-    @apply bg-primary hover:bg-primary-hover !important;
+  @apply bg-primary hover:bg-primary-hover !important;
 }
 
 .mantine-Pagination-control[data-active] {
-    @apply bg-primary !important;
+  @apply bg-primary !important;
 }
 
 .mantine-UnstyledButton-root:hover {
-    background-color: #383a40;
+  background-color: #383a40;
 }

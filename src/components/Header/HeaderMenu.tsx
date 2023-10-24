@@ -6,6 +6,7 @@ import { useState } from "react";
 
 const HeaderMenu = () => {
   const [navOpened, setNavOpened] = useState(false);
+
   return (
     <div className="flex items-center justify-center">
       <Drawer

@@ -10,13 +10,15 @@ import { signOut } from "next-auth/react";
 type Props = {
   session: Session | null;
 };
+
 const HeaderUserMenu = ({ session }: Props) => {
   const [opened, setOpened] = useState(false);
+
   return (
     <>
       <Menu withArrow>
         <Menu.Target>
-          <button className="hover:border-primary border border-transparent transition-all duration-200 ease-in-out">
+          <button className="border border-transparent transition-all duration-200 ease-in-out hover:border-primary">
             <Avatar
               src={session?.user.image ?? null}
               alt="Avatar"
@@ -41,7 +43,7 @@ const HeaderUserMenu = ({ session }: Props) => {
             <>
               <Menu.Item component={Link} href="/">
                 <h2 className="text-lg font-bold text-white">
-                  {session.user.name}
+                  {session.user.username}
                 </h2>
               </Menu.Item>
 

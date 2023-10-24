@@ -21,7 +21,7 @@ export const api = createTRPCProxyClient<AppRouter>({
       headers() {
         const heads = new Map(headers());
         heads.set("x-trpc-source", "rsc");
-        heads.delete("Transfer-Encoding")
+        heads.delete("Transfer-Encoding");
         return Object.fromEntries(heads);
       },
     }),

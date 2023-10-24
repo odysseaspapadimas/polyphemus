@@ -25,7 +25,6 @@ const UserActions = ({ mediaId, mediaType, status }: Props) => {
   const removeFromList = useRemoveFromList();
 
   const handleList = async ({ status }: { status: Status }) => {
-
     if (listEntryStatus.data?.status) {
       await removeFromList.mutateAsync({
         mediaId,

@@ -26,7 +26,7 @@ const SearchPage = async ({ searchParams }: Props) => {
 
       <Pagination page={page} total_pages={total_pages ?? 1} />
 
-      <div className="flex flex-col space-y-4 my-9">
+      <div className="my-9 flex flex-col space-y-4">
         {results?.map(
           (result) =>
             result.media_type !== "person" && (

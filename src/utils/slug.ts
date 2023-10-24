@@ -2,5 +2,9 @@ import slugify from "slugify";
 
 export default function slug(string: string | undefined | null) {
   if (!string) return "";
-  return slugify(string, { lower: true, strict: true, remove: /[^a-zA-Z\d\s:]/g });
+  return slugify(string, {
+    lower: true,
+    strict: true,
+    remove: /[^a-zA-Z\d\s:]/g,
+  });
 }

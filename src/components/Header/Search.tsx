@@ -38,7 +38,7 @@ const Search = () => {
   const ref = useClickOutside(showInputHandler.close, ["mouseup", "touchend"]);
 
   const [query, setQuery] = useState("");
-  const [debouncedQuery] = useDebouncedValue(encodeURIComponent(query), 200);
+  const [] = useDebouncedValue(encodeURIComponent(query), 200); //devouncedQuery
 
   const onChangeQuery = (e: React.ChangeEvent<HTMLInputElement>) => {
     setQuery(e.target.value);

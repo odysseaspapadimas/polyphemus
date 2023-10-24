@@ -1,4 +1,5 @@
 import "@mantine/core/styles.css";
+import "@mantine/notifications/styles.css";
 import "src/styles/globals.css";
 
 import { Manrope } from "next/font/google";
@@ -7,6 +8,8 @@ import { headers } from "next/headers";
 import { TRPCReactProvider } from "src/trpc/react";
 import { ColorSchemeScript, MantineProvider } from "@mantine/core";
 import Header from "src/components/Header/Header";
+import CheckUsername from "src/components/CheckUsername/CheckUsername";
+import { Notifications } from "@mantine/notifications";
 
 const inter = Manrope({ subsets: ["latin"] });
 
@@ -48,6 +51,8 @@ export default function RootLayout({
               },
             }}
           >
+            <Notifications />
+            <CheckUsername />
             <Header />
             {children}
           </MantineProvider>

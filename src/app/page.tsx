@@ -20,10 +20,10 @@ export default async function Home() {
   return (
     <Container size="md" my={36}>
       <main className="">
-        <h1 className="text-xl font-semibold border-b border-b-gray-600 mb-2">
+        <h1 className="mb-2 border-b border-b-gray-600 text-xl font-semibold">
           Trending Movies
         </h1>
-        <div className="grid justify-items-center gap-y-3 md:space-y-0 w-full grid-cols-2 md:grid-cols-6 md:gap-2">
+        <div className="grid w-full grid-cols-2 justify-items-center gap-y-3 md:grid-cols-6 md:gap-2 md:space-y-0">
           {movies
             .map((movie) => (
               <div key={movie.id}>
@@ -32,10 +32,10 @@ export default async function Home() {
             ))
             .slice(0, 12)}
         </div>
-        <h1 className="mt-6 text-xl font-semibold border-b border-b-gray-600 mb-2">
+        <h1 className="mb-2 mt-6 border-b border-b-gray-600 text-xl font-semibold">
           Trending TV Shows
         </h1>
-        <div className="grid justify-items-center gap-y-3 md:space-y-0 w-full grid-cols-2 md:grid-cols-6 md:gap-2">
+        <div className="grid w-full grid-cols-2 justify-items-center gap-y-3 md:grid-cols-6 md:gap-2 md:space-y-0">
           {shows
             .map((show) => (
               <div key={show.id}>
