@@ -1,13 +1,18 @@
 "use client";
 
 import { Group, TextInput, Transition } from "@mantine/core";
-import { useClickOutside, useDebouncedValue, useDisclosure, useMediaQuery } from "@mantine/hooks";
+import {
+  useClickOutside,
+  useDebouncedValue,
+  useDisclosure,
+  useMediaQuery,
+} from "@mantine/hooks";
 import { IconSearch, IconX } from "@tabler/icons-react";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 
 const Search = () => {
-    const router = useRouter();
+  const router = useRouter();
   const smallerThan992 = useMediaQuery("(max-width: 992px)", true, {
     getInitialValueInEffect: true,
   });
@@ -72,13 +77,16 @@ const Search = () => {
             <div className="relative">
               <form onSubmit={handleSubmit}>
                 <TextInput
+                  ref={inputRef}
                   placeholder="e.g The Office"
                   style={styles}
                   value={query}
-                    classNames={{
-                      input: `${!!query && showInput && "rounded-none rounded-t-md"}`
-                    }}
-                    onChange={onChangeQuery}
+                  classNames={{
+                    input: `${
+                      !!query && showInput && "rounded-none rounded-t-md"
+                    }`,
+                  }}
+                  onChange={onChangeQuery}
                   rightSection={
                     <IconX
                       onClick={handleClearQuery}

@@ -1,5 +1,5 @@
-import { Container, Group } from "@mantine/core";
-import Media from "src/components/Media/Media";
+import { Container } from "@mantine/core";
+import MediaResult from "src/components/Search/MediaResult";
 import Pagination from "src/components/Search/Pagination";
 import { tmdb } from "src/utils/tmdb";
 
@@ -26,16 +26,16 @@ const SearchPage = async ({ searchParams }: Props) => {
 
       <Pagination page={page} total_pages={total_pages ?? 1} />
 
-      <div className="relative grid grid-cols-[repeat(auto-fit,minmax(140px,1fr))] justify-items-center gap-y-2 sm:grid-cols-[repeat(auto-fit,minmax(150px,1fr))] md:gap-2">
+      <div className="flex flex-col space-y-4 my-9">
         {results?.map(
           (result) =>
             result.media_type !== "person" && (
-              <div key={result.id}>
-                <p>{result.id}</p>
-              </div>
+              <MediaResult key={result.id} data={result} />
             ),
         )}
       </div>
+
+      <Pagination page={page} total_pages={total_pages ?? 1} />
     </Container>
   );
 };

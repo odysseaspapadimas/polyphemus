@@ -11,6 +11,7 @@ import RatingRing from "src/components/Media/RatingRing";
 import UserActions from "src/components/MediaPage/UserActions/UserActions";
 import { api } from "src/trpc/server";
 import { getPlaiceholder } from "plaiceholder";
+import { IconPhotoOff } from "@tabler/icons-react";
 
 type Props = {
   params: {
@@ -34,36 +35,48 @@ const MoviePage = async ({ params }: Props) => {
 
   const status = await getInitialStatus(movie.id!);
 
-  const buffer = await fetch(IMG_URL(movie.poster_path)).then(async (res) =>
-    Buffer.from(await res.arrayBuffer()),
-  );
+  let base64;
+  if (movie.poster_path) {
+    const buffer = await fetch(IMG_URL(movie.poster_path, 300)).then(
+      async (res) => Buffer.from(await res.arrayBuffer()),
+    );
 
-  const { base64 } = await getPlaiceholder(buffer);
+    const res = await getPlaiceholder(buffer);
+    base64 = res.base64;
+  }
 
   return (
     <>
       <div className="relative">
         <div className="absolute left-0 top-0 h-full w-full brightness-[0.25] md:h-screen-header">
-          <Image
-            src={IMG_URL(movie.backdrop_path)}
-            priority
-            alt="movie backdrop"
-            className="h-full w-full object-cover"
-            fill
-            sizes="100vw"
-          />
+          {movie.backdrop_path && (
+            <Image
+              src={IMG_URL(movie.backdrop_path)}
+              priority
+              alt="movie backdrop"
+              className="h-full w-full object-cover"
+              fill
+              sizes="100vw"
+            />
+          )}
         </div>
         <Container className="relative grid h-full place-items-center py-10 sm:flex sm:items-center sm:py-20">
           <div className="flex flex-col items-center justify-center">
-            <Image
-              height={450}
-              width={300}
-              alt="movie poster"
-              src={IMG_URL(movie.poster_path, 300)}
-              className="flex-1 rounded-md"
-              placeholder="blur"
-              blurDataURL={base64}
-            />
+            {movie.poster_path ? (
+              <Image
+                height={450}
+                width={300}
+                alt="movie poster"
+                src={IMG_URL(movie.poster_path, 300)}
+                className="flex-1 rounded-md"
+                placeholder={movie.poster_path ? "blur" : undefined}
+                blurDataURL={base64}
+              />
+            ) : (
+              <div className="grid h-[450px] w-[300px] place-items-center rounded-md bg-gray-700">
+                <IconPhotoOff />
+              </div>
+            )}
           </div>
 
           <div className="mt-8 flex flex-1 flex-col sm:ml-8 sm:max-w-2xl">

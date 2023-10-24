@@ -17,7 +17,7 @@ const Pagination = ({ page, total_pages }: Props) => {
   };
 
   return (
-    <Center my={24}>
+    <Center>
       <MantinePagination
         value={page}
         onChange={handleChange}

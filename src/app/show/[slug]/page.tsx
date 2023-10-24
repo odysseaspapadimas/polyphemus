@@ -57,11 +57,15 @@ const ShowPage = async ({ params }: Props) => {
 
   const airTime = await getAirTime(params.slug);
 
-  const buffer = await fetch(IMG_URL(show.poster_path)).then(async (res) =>
-    Buffer.from(await res.arrayBuffer()),
-  );
+  let base64 = undefined;
+  if (show.poster_path) {
+    const buffer = await fetch(IMG_URL(show.poster_path, 300)).then(
+      async (res) => Buffer.from(await res.arrayBuffer()),
+    );
 
-  const { base64 } = await getPlaiceholder(buffer);
+    const res = await getPlaiceholder(buffer);
+    base64 = res.base64;
+  }
 
   return (
     <div className="relative">
@@ -82,7 +86,7 @@ const ShowPage = async ({ params }: Props) => {
             width={300}
             alt="show poster"
             src={IMG_URL(show.poster_path, 300)}
-            placeholder="blur"
+            placeholder={show.poster_path ? "blur" : undefined}
             blurDataURL={base64}
           />
 

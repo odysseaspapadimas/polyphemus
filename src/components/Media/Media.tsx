@@ -13,7 +13,7 @@ const isMovie = (data: MovieResult | TvResult): data is MovieResult => {
 
 const Media = async ({ data }: { data: MovieResult | TvResult }) => {
   let name, release_date, link;
-  // let type = "movie"; not used yet
+  let type = "movie";
 
   if (isMovie(data)) {
     data = data as MovieResult;
@@ -22,7 +22,7 @@ const Media = async ({ data }: { data: MovieResult | TvResult }) => {
     link = "/movie/" + slug(data.title!) + "-" + data.id;
   } else {
     data = data as TvResult;
-    // type = "show";
+    type = "show";
     name = data.name;
     release_date = data.first_air_date?.split("-")[0];
     link = "/show/" + slug(data.name!) + "-" + data.id;
@@ -32,8 +32,8 @@ const Media = async ({ data }: { data: MovieResult | TvResult }) => {
 
   let base64;
   if (data.poster_path) {
-    const buffer = await fetch(IMG_URL(data.poster_path, 300)).then(async (res) =>
-      Buffer.from(await res.arrayBuffer()),
+    const buffer = await fetch(IMG_URL(data.poster_path, 300)).then(
+      async (res) => Buffer.from(await res.arrayBuffer()),
     );
 
     const res = await getPlaiceholder(buffer);
@@ -42,7 +42,7 @@ const Media = async ({ data }: { data: MovieResult | TvResult }) => {
 
   return (
     <div className="w-[140px] sm:w-[150px]">
-      <div className="relative ">
+      <div className="relative">
         <div
           className="absolute left-2 top-2 z-10 grid h-[34px] w-[34px] place-items-center rounded-full border-[3px]"
           style={{
@@ -56,7 +56,7 @@ const Media = async ({ data }: { data: MovieResult | TvResult }) => {
         </div>
         <Link href={link}>
           <Image
-            alt="movie poster"
+            alt={`${type} poster`}
             src={IMG_URL(data.poster_path, 300)}
             width={175}
             height={262.5}
