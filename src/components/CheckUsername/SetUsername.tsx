@@ -6,8 +6,11 @@ import { useForm } from "@mantine/form";
 import { api } from "src/trpc/react";
 import { useState } from "react";
 import { notifications } from "@mantine/notifications";
+import { useRouter } from "next/navigation";
 
 const SetUsername = () => {
+  const router = useRouter();
+
   const [opened, { close }] = useDisclosure(true);
   const [loading, setLoading] = useState(false);
 
@@ -60,6 +63,7 @@ const SetUsername = () => {
       });
 
       if (successful) {
+        router.refresh();
         setLoading(false);
         notifications.show({
           title: "Welcome!",

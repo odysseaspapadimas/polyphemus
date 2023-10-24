@@ -16,7 +16,7 @@ const HeaderUserMenu = ({ session }: Props) => {
 
   return (
     <>
-      <Menu withArrow>
+      <Menu withArrow position="bottom-end">
         <Menu.Target>
           <button className="border border-transparent transition-all duration-200 ease-in-out hover:border-primary">
             <Avatar
