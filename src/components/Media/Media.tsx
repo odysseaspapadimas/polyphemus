@@ -32,7 +32,7 @@ const Media = async ({ data }: { data: MovieResult | TvResult }) => {
 
   let base64;
   if (data.poster_path) {
-    const buffer = await fetch(IMG_URL(data.poster_path)).then(async (res) =>
+    const buffer = await fetch(IMG_URL(data.poster_path, 300)).then(async (res) =>
       Buffer.from(await res.arrayBuffer()),
     );
 
