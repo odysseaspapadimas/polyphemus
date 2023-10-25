@@ -5,7 +5,7 @@ import { useState } from "react";
 import SignInSignUp from "./SignInSignUp";
 import type { Session } from "next-auth";
 import Link from "next/link";
-import { signOut } from "next-auth/react";
+import { signIn, signOut } from "next-auth/react";
 
 type Props = {
   session: Session | null;
@@ -34,7 +34,7 @@ const HeaderUserMenu = ({ session }: Props) => {
             <Menu.Item
               component="button"
               onClick={() => {
-                setOpened(true);
+                void signIn("google");
               }}
             >
               Sign-in

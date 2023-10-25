@@ -20,7 +20,7 @@ const Lists = ({ selectedList }: Props) => {
 
   return (
     <div>
-      <div className="mt-4 flex items-center space-x-4">
+      <div className="mt-6 flex items-center justify-center space-x-4 sm:justify-start">
         <Link
           href={`?list=watching`}
           onClick={() => handleTabChange("WATCHING")}

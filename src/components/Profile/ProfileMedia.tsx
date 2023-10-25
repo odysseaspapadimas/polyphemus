@@ -32,7 +32,7 @@ const ProfileMedia = ({ data, session }: Props) => {
   }
 
   return (
-    <div className="w-[130px] sm:w-[172.8px] ">
+    <div className="w-[160px] sm:w-[172.8px] ">
       <div className="relative">
         <div
           className="absolute left-2 top-2 z-10 grid h-[34px] w-[34px] place-items-center rounded-full border-[3px]"
