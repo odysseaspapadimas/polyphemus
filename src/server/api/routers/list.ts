@@ -1,10 +1,16 @@
 import { z } from "zod";
 
-import { createTRPCRouter, protectedProcedure } from "src/server/api/trpc";
+import {
+  createTRPCRouter,
+  protectedProcedure,
+  publicProcedure,
+} from "src/server/api/trpc";
 import {
   MediaTypeSchema,
   StatusSchema,
 } from "../../../../prisma/generated/zod";
+import { tmdb } from "src/utils/tmdb";
+import type { MovieResponse, ShowResponse } from "moviedb-promise";
 
 export const listRouter = createTRPCRouter({
   getEntry: protectedProcedure
@@ -62,5 +68,35 @@ export const listRouter = createTRPCRouter({
       });
 
       return res;
+    }),
+  get: publicProcedure
+    .input(z.object({ status: StatusSchema, username: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const list = await ctx.db.watchlistEntry.findMany({
+        where: {
+          user: {
+            username: input.username,
+          },
+          status: input.status,
+        },
+        select: {
+          mediaId: true,
+          mediaType: true,
+        },
+      });
+
+      const movieList = [] as MovieResponse[];
+      const showList = [] as ShowResponse[];
+      for (const entry of list) {
+        if (entry.mediaType === "MOVIE") {
+          const movie = await tmdb.movieInfo({ id: entry.mediaId });
+          movieList.push(movie);
+        } else if (entry.mediaType === "SHOW") {
+          const show = await tmdb.tvInfo({ id: entry.mediaId });
+          showList.push(show);
+        }
+      }
+
+      return { movies: movieList, shows: showList };
     }),
 });

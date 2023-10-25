@@ -16,7 +16,7 @@ const HeaderUserMenu = ({ session }: Props) => {
 
   return (
     <>
-      <Menu withArrow position="bottom-end">
+      <Menu withArrow position="bottom-end" arrowPosition="center">
         <Menu.Target>
           <button className="border border-transparent transition-all duration-200 ease-in-out hover:border-primary">
             <Avatar
@@ -41,7 +41,10 @@ const HeaderUserMenu = ({ session }: Props) => {
             </Menu.Item>
           ) : (
             <>
-              <Menu.Item component={Link} href="/">
+              <Menu.Item
+                component={Link}
+                href={`/user/${session.user.username}`}
+              >
                 <h2 className="text-lg font-bold text-white">
                   {session.user.username}
                 </h2>

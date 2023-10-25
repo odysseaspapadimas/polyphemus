@@ -10,6 +10,10 @@
   @apply bg-primary !important;
 }
 
+.mantine-Tabs-tab[data-active] {
+  background-color: var(--_tab-bg);
+}
+
 .mantine-UnstyledButton-root:hover {
   background-color: #383a40;
 }

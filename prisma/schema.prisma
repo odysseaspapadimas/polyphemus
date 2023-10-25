@@ -20,8 +20,8 @@ model User {
   accounts      Account[]
   sessions      Session[]
 
-  username       String?          @unique
-  WatchlistEntry WatchlistEntry[]
+  username         String?          @unique
+  watchListEntries WatchlistEntry[]
 }
 
 model WatchlistEntry {

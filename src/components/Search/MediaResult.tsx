@@ -2,14 +2,10 @@ import type { MovieResult, TvResult } from "moviedb-promise";
 import Image from "next/image";
 import { getPlaiceholder } from "plaiceholder";
 import slug from "src/utils/slug";
-import { IMG_URL } from "src/utils/tmdb";
+import { IMG_URL, isMovie } from "src/utils/tmdb";
 import MediaInfo from "./MediaInfo";
 import Link from "next/link";
 import { IconPhotoOff } from "@tabler/icons-react";
-
-const isMovie = (data: MovieResult | TvResult): data is MovieResult => {
-  return "title" in data;
-};
 
 const MediaResult = async ({ data }: { data: MovieResult | TvResult }) => {
   let name, release_date, link;

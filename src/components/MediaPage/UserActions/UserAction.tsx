@@ -3,17 +3,12 @@
 import { ActionIcon, Tooltip } from "@mantine/core";
 import type { Status } from "@prisma/client";
 import { IconCheck, IconEye, IconPlus } from "@tabler/icons-react";
+import { listText } from "src/utils/dict";
 
 export type ToggleOnListButtonProps = {
   onList?: Status;
   list: Status;
   handleList: ({ status }: { status: Status }) => void;
-};
-
-const listText = {
-  COMPLETED: "Completed",
-  PLAN_TO_WATCH: "Plan to Watch",
-  WATCHING: "Watching",
 };
 
 const UserAction = ({ onList, list, handleList }: ToggleOnListButtonProps) => {

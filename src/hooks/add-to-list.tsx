@@ -7,8 +7,9 @@ const useAddToList = () => {
       await utils.list.getEntry.cancel();
       utils.list.getEntry.setData({ mediaId, mediaType }, () => ({ status }));
     },
-    onSuccess: async ({ mediaId, mediaType }) => {
-      await utils.list.getEntry.invalidate({ mediaId, mediaType });
+    onSettled: async () => {
+      await utils.list.getEntry.invalidate();
+      await utils.list.get.invalidate();
     },
   });
 

@@ -8,12 +8,7 @@ import type { MouseEvent } from "react";
 import useAddToList from "src/hooks/add-to-list";
 import useRemoveFromList from "src/hooks/remove-from-list";
 import { api } from "src/trpc/react";
-
-const listDict = {
-  Completed: "COMPLETED",
-  "Plan to Watch": "PLAN_TO_WATCH",
-  Watching: "WATCHING",
-};
+import { listDict } from "src/utils/dict";
 
 type Props = {
   mediaId: number;

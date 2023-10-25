@@ -1,43 +1,38 @@
-import type { MovieResult, TvResult } from "moviedb-promise";
+import type { MovieResponse, ShowResponse } from "moviedb-promise";
 import Image from "next/image";
 import Link from "next/link";
-import MediaMenu from "./MediaMenu";
 import slug from "src/utils/slug";
-import { getServerAuthSession } from "src/server/auth";
-import { IMG_URL, isMovie } from "src/utils/tmdb";
-import { getPlaiceholder } from "plaiceholder";
+import { IMG_URL } from "src/utils/tmdb";
+import MediaMenu from "../Media/MediaMenu";
+import type { Session } from "next-auth";
 
-const Media = async ({ data }: { data: MovieResult | TvResult }) => {
+type Props = {
+  data: MovieResponse | ShowResponse;
+  session: Session | null;
+};
+
+const isMovie = (data: MovieResponse | ShowResponse): data is MovieResponse => {
+  return "title" in data;
+};
+
+const ProfileMedia = ({ data, session }: Props) => {
   let name, release_date, link;
   let type = "movie";
 
   if (isMovie(data)) {
-    data = data as MovieResult;
     name = data.title;
     release_date = data.release_date?.split("-")[0];
     link = "/movie/" + slug(data.title!) + "-" + data.id;
   } else {
-    data = data as TvResult;
+    data = data as ShowResponse;
     type = "show";
     name = data.name;
     release_date = data.first_air_date?.split("-")[0];
     link = "/show/" + slug(data.name!) + "-" + data.id;
   }
 
-  const session = await getServerAuthSession();
-
-  let base64;
-  if (data.poster_path) {
-    const buffer = await fetch(IMG_URL(data.poster_path, 300)).then(
-      async (res) => Buffer.from(await res.arrayBuffer()),
-    );
-
-    const res = await getPlaiceholder(buffer);
-    base64 = res.base64;
-  }
-
   return (
-    <div className="w-[140px] sm:w-[150px]">
+    <div className="w-[130px] sm:w-[172.8px] ">
       <div className="relative">
         <div
           className="absolute left-2 top-2 z-10 grid h-[34px] w-[34px] place-items-center rounded-full border-[3px]"
@@ -54,11 +49,9 @@ const Media = async ({ data }: { data: MovieResult | TvResult }) => {
           <Image
             alt={`${type} poster`}
             src={IMG_URL(data.poster_path, 300)}
-            width={175}
-            height={262.5}
+            width={172.8}
+            height={259.2}
             className={`border border-transparent transition-all duration-200 ease-in-out hover:border-sky-300 group-hover:opacity-75`}
-            placeholder="blur"
-            blurDataURL={base64}
           />
         </Link>
         {session && (
@@ -74,4 +67,4 @@ const Media = async ({ data }: { data: MovieResult | TvResult }) => {
     </div>
   );
 };
-export default Media;
+export default ProfileMedia;
