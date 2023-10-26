@@ -5,6 +5,8 @@ import { redirect } from "next/navigation";
 import type { StatusType } from "prisma/generated/zod";
 import FollowersFollowing from "src/components/Profile/FollowersFollowing";
 import Lists from "src/components/Profile/Lists";
+import ProfileFollowingAndActions from "src/components/Profile/ProfileFollowingAndActions";
+import ProfileUserActions from "src/components/Profile/ProfileUserActions";
 import SessionProvider from "src/components/SessionProvider";
 import { getServerAuthSession } from "src/server/auth";
 import { api } from "src/trpc/server";
@@ -53,11 +55,7 @@ const UserPage = async ({ params, searchParams }: Props) => {
         />
         <h1 className="text-2xl font-semibold">{username}</h1>
 
-        <FollowersFollowing
-          followers={user.followers}
-          following={user.following}
-          session={session}
-        />
+        <ProfileFollowingAndActions user={user} session={session} />
       </Group>
       <SessionProvider session={session}>
         <Lists selectedList={list} />

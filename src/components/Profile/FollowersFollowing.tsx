@@ -5,7 +5,7 @@ import { IconPlus, IconX } from "@tabler/icons-react";
 import type { Session } from "next-auth";
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useParams } from "next/navigation";
 import type { User as UserType } from "prisma/generated/zod";
 import { useState } from "react";
 import { api } from "src/trpc/react";
@@ -18,7 +18,7 @@ type Props = {
   following: (UserType & {
     _count: { followers: number; following: number };
   })[];
-  session: Session | null;
+  sessionUser: RouterOutputs["user"]["get"] | null | undefined;
 };
 
 type TabProps = {
@@ -26,16 +26,11 @@ type TabProps = {
   opened: boolean;
 };
 
-const FollowersFollowing = ({ followers, following, session }: Props) => {
+const FollowersFollowing = ({ followers, following, sessionUser }: Props) => {
   const [tabState, setTabState] = useState<TabProps>({
     opened: false,
     tab: "FOLLOWERS",
   });
-
-  const sessionUser = api.user.get.useQuery(
-    { username: session?.user.username },
-    { enabled: !!session?.user.username },
-  );
 
   return (
     <>
@@ -80,11 +75,7 @@ const FollowersFollowing = ({ followers, following, session }: Props) => {
             <div className="flex flex-col space-y-3 py-4">
               {followers.length > 0 ? (
                 followers.map((user) => (
-                  <User
-                    key={user.id}
-                    user={user}
-                    sessionUser={sessionUser.data}
-                  />
+                  <User key={user.id} user={user} sessionUser={sessionUser} />
                 ))
               ) : (
                 <Center my={13}>
@@ -97,11 +88,7 @@ const FollowersFollowing = ({ followers, following, session }: Props) => {
             <div className="flex flex-col space-y-3 py-4">
               {following.length > 0 ? (
                 following.map((user) => (
-                  <User
-                    key={user.id}
-                    user={user}
-                    sessionUser={sessionUser.data}
-                  />
+                  <User key={user.id} user={user} sessionUser={sessionUser} />
                 ))
               ) : (
                 <Center my={13}>
@@ -130,7 +117,6 @@ const User = ({
     onSettled: async () => {
       console.log(user.username, sessionUser?.username, "usernames");
       await utils.user.get.invalidate({ username: sessionUser!.username! });
-      router.refresh();
     },
   });
   return (
