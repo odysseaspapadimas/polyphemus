@@ -32,7 +32,7 @@ const FollowersFollowing = ({ followers, following, sessionUser }: Props) => {
 
   return (
     <>
-      <Group className="my-4 md:my-0 md:mx-8 space-x-4">
+      <Group className="my-4 space-x-4 md:mx-8 md:my-0">
         <div
           onClick={() => setTabState({ opened: true, tab: "FOLLOWERS" })}
           className="flex w-[85px] flex-col items-center justify-center p-2 hover:cursor-pointer hover:bg-[#27292e]"
@@ -111,9 +111,54 @@ const User = ({
 }) => {
   const utils = api.useContext();
   const toggleFollow = api.user.toggleFollow.useMutation({
-    onSettled: async () => {
-      console.log(user.username, sessionUser?.username, "usernames");
-      await utils.user.get.invalidate({ username: sessionUser!.username! });
+    onMutate: async ({ follow }) => {
+      // console.log("mutate");
+      // await utils.user.get.cancel();
+
+      // if (sessionUser) {
+      //   const optimisticSessionUser = {
+      //     _count: {
+      //       followers: sessionUser.followers.length,
+      //       following: sessionUser.following.length,
+      //     },
+      //     id: sessionUser.id,
+      //     email: sessionUser.email,
+      //     emailVerified: sessionUser.emailVerified,
+      //     image: sessionUser.image,
+      //     name: sessionUser.name,
+      //     username: sessionUser.username,
+      //   };
+      //   // console.log(user.followers[0], sessionUser, "test");
+      //   if (follow) {
+      //     utils.user.get.setData({ username: user.username! }, (user) => {
+      //       console.log(user, "should be odysseas");
+      //       if (user) {
+      //         return {
+      //           ...user,
+      //           followers: [...user.followers],
+      //         };
+      //       } else {
+      //         return user;
+      //       }
+      //     });
+      //   } else {
+      //     utils.user.get.setData({ username: user.username! }, (user) => {
+      //       if (user) {
+      //         return {
+      //           ...user,
+      //           followers: user.followers.filter(
+      //             (follower) => follower.id !== sessionUser.id,
+      //           ),
+      //         };
+      //       } else {
+      //         return user;
+      //       }
+      //     });
+      //   }
+      // }
+    },
+    onSuccess: async () => {
+      await utils.user.get.invalidate();
     },
   });
   return (
@@ -146,6 +191,7 @@ const User = ({
       </div>
 
       {sessionUser &&
+        sessionUser.username !== user.username &&
         (sessionUser.following?.some(
           (following) => following.id === user.id,
         ) ? (
