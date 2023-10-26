@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import { redirect } from "next/navigation";
 import type { StatusType } from "prisma/generated/zod";
+import FollowersFollowing from "src/components/Profile/FollowersFollowing";
 import Lists from "src/components/Profile/Lists";
 import SessionProvider from "src/components/SessionProvider";
 import { getServerAuthSession } from "src/server/auth";
@@ -51,6 +52,12 @@ const UserPage = async ({ params, searchParams }: Props) => {
           className="rounded-full"
         />
         <h1 className="text-2xl font-semibold">{username}</h1>
+
+        <FollowersFollowing
+          followers={user.followers}
+          following={user.following}
+          session={session}
+        />
       </Group>
       <SessionProvider session={session}>
         <Lists selectedList={list} />

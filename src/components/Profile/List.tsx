@@ -37,7 +37,8 @@ const List = ({ status }: Props) => {
       color="gray"
       classNames={{
         list: "flex flex-nowrap overflow-x-scroll-auto sm:overflow-x-hidden mb-4",
-        panel: "flex flex-wrap gap-y-2 sm:gap-4 justify-around sm:justify-start",
+        panel:
+          "flex flex-wrap gap-y-2 sm:gap-4 justify-around sm:justify-start",
       }}
       defaultValue="both"
     >

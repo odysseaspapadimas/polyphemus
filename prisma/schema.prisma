@@ -22,6 +22,9 @@ model User {
 
   username         String?          @unique
   watchListEntries WatchlistEntry[]
+  
+  followers        User[]           @relation("FollowRelation")
+  following        User[]           @relation("FollowRelation")
 }
 
 model WatchlistEntry {

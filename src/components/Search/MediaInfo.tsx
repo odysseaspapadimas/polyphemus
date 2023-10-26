@@ -24,7 +24,7 @@ const MediaInfo = ({ name, release_date, overview, link }: Props) => {
   return (
     <div className="flex-1 px-4 sm:py-3">
       <Link href={link}>
-        <h2 ref={titleRef} className="text-xl font-semibold">
+        <h2 ref={titleRef} className="text-xl font-semibold hover:text-primary">
           {name}
         </h2>
       </Link>
