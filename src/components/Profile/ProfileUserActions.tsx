@@ -19,12 +19,12 @@ const ProfileUserActions = ({ session, user, isFollowing }: Props) => {
     },
   });
 
-  if (!session) {
+  if (!session || session.user.username === user.username) {
     return null;
   }
 
   return (
-    <Group>
+    <Group className="mb-4 md:mb-0">
       <Button
         color={!isFollowing ? "blue" : "gray"}
         loading={toggleFollow.isLoading}

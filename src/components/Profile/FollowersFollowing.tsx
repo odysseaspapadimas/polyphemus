@@ -2,10 +2,8 @@
 
 import { ActionIcon, Center, Group, Modal, Tabs } from "@mantine/core";
 import { IconPlus, IconX } from "@tabler/icons-react";
-import type { Session } from "next-auth";
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter, useParams } from "next/navigation";
 import type { User as UserType } from "prisma/generated/zod";
 import { useState } from "react";
 import { api } from "src/trpc/react";
@@ -34,7 +32,7 @@ const FollowersFollowing = ({ followers, following, sessionUser }: Props) => {
 
   return (
     <>
-      <Group className="mx-8 space-x-4">
+      <Group className="my-4 md:my-0 md:mx-8 space-x-4">
         <div
           onClick={() => setTabState({ opened: true, tab: "FOLLOWERS" })}
           className="flex w-[85px] flex-col items-center justify-center p-2 hover:cursor-pointer hover:bg-[#27292e]"
@@ -111,7 +109,6 @@ const User = ({
   user: UserType & { _count: { followers: number; following: number } };
   sessionUser: RouterOutputs["user"]["get"] | null | undefined;
 }) => {
-  const router = useRouter();
   const utils = api.useContext();
   const toggleFollow = api.user.toggleFollow.useMutation({
     onSettled: async () => {

@@ -1,12 +1,10 @@
-import { Container, Group } from "@mantine/core";
+import { Container } from "@mantine/core";
 import type { Metadata } from "next";
 import Image from "next/image";
 import { redirect } from "next/navigation";
 import type { StatusType } from "prisma/generated/zod";
-import FollowersFollowing from "src/components/Profile/FollowersFollowing";
 import Lists from "src/components/Profile/Lists";
 import ProfileFollowingAndActions from "src/components/Profile/ProfileFollowingAndActions";
-import ProfileUserActions from "src/components/Profile/ProfileUserActions";
 import SessionProvider from "src/components/SessionProvider";
 import { getServerAuthSession } from "src/server/auth";
 import { api } from "src/trpc/server";
@@ -45,7 +43,7 @@ const UserPage = async ({ params, searchParams }: Props) => {
 
   return (
     <Container my={36}>
-      <Group>
+      <div className="flex flex-col items-center md:flex-row">
         <Image
           src={user.image!}
           alt="user profile"
@@ -53,10 +51,10 @@ const UserPage = async ({ params, searchParams }: Props) => {
           height={75}
           className="rounded-full"
         />
-        <h1 className="text-2xl font-semibold">{username}</h1>
+        <h1 className="mt-2 md:mt-0 text-2xl font-semibold md:ml-4">{username}</h1>
 
         <ProfileFollowingAndActions user={user} session={session} />
-      </Group>
+      </div>
       <SessionProvider session={session}>
         <Lists selectedList={list} />
       </SessionProvider>

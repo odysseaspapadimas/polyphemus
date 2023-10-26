@@ -16,13 +16,18 @@ const ProfileFollowingAndActions = ({ user, session }: Props) => {
 
   const username = params.username as string;
 
+  //only fetch session user if there is a session
   const sessionUser = api.user.get.useQuery(
     { username: session?.user.username },
     { enabled: !!session?.user.username },
   );
 
-  const userQuery = api.user.get.useQuery({ username }, { initialData: user });
+  const userQuery = api.user.get.useQuery(
+    { username },
+    { placeholderData: user },
+  );
 
+  //non-null assertion because of placeholder data that is fetched on the server
   const followers = userQuery.data!.followers;
   const following = userQuery.data!.following;
 
