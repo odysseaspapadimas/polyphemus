@@ -9,8 +9,8 @@ const useRemoveFromList = () => {
         replace ? { status } : null,
       );
     },
-    onSettled: async () => {
-      await utils.list.getEntry.invalidate();
+    onSuccess: async ({ mediaId, mediaType }) => {
+      await utils.list.getEntry.invalidate({ mediaId, mediaType });
       await utils.list.get.invalidate();
     },
   });
