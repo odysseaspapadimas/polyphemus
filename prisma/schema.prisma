@@ -22,9 +22,12 @@ model User {
 
   username         String?          @unique
   watchListEntries WatchlistEntry[]
-  
-  followers        User[]           @relation("FollowRelation")
-  following        User[]           @relation("FollowRelation")
+
+  followers User[] @relation("FollowRelation")
+  following User[] @relation("FollowRelation")
+
+  chats    Chat[]
+  messages Message[]
 }
 
 model WatchlistEntry {
@@ -51,6 +54,30 @@ enum Status {
   WATCHING
   PLAN_TO_WATCH
   COMPLETED
+}
+
+model Message {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  content String
+  read    Boolean @default(false)
+
+  senderUsername String
+  sender         User   @relation(fields: [senderUsername], references: [username])
+
+  Chat   Chat   @relation(fields: [chatId], references: [id])
+  chatId String
+}
+
+model Chat {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  messages Message[]
+  users    User[]
 }
 
 model Account {

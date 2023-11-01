@@ -49,6 +49,12 @@ const HeaderUserMenu = ({ session }: Props) => {
                   {session.user.username}
                 </h2>
               </Menu.Item>
+              
+              <Menu.Divider />
+
+              <Menu.Item component={Link} href={`/messages`}>
+                Messages
+              </Menu.Item>
 
               <MenuItem onClick={() => signOut()}>Sign-out</MenuItem>
             </>
