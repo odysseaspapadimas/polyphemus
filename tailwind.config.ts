@@ -17,7 +17,7 @@ export default {
       },
       height: {
         "screen-header": "calc(100vh - 71px)",
-        "screen-messages-mobile": "calc(100vh - 71px - 64px)",
+        "screen-messages-mobile": "calc(100vh - 71px - 68px - 58px)",
       },
     },
   },

@@ -10,6 +10,7 @@ import { ColorSchemeScript, MantineProvider } from "@mantine/core";
 import Header from "src/components/Header/Header";
 import CheckUsername from "src/components/CheckUsername/CheckUsername";
 import { Notifications } from "@mantine/notifications";
+import PusherProvider from "src/providers/PusherProvider";
 
 const inter = Manrope({ subsets: ["latin"] });
 
@@ -53,8 +54,10 @@ export default function RootLayout({
           >
             <Notifications />
             <CheckUsername />
-            <Header />
-            {children}
+            <PusherProvider>
+              <Header />
+              {children}
+            </PusherProvider>
           </MantineProvider>
         </TRPCReactProvider>
       </body>

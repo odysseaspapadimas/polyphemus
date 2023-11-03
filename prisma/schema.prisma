@@ -62,12 +62,13 @@ model Message {
   updatedAt DateTime @updatedAt
 
   content String
-  read    Boolean @default(false)
+  read    Boolean   @default(false)
+  readAt  DateTime?
 
   senderUsername String
   sender         User   @relation(fields: [senderUsername], references: [username])
 
-  Chat   Chat   @relation(fields: [chatId], references: [id])
+  chat   Chat   @relation(fields: [chatId], references: [id])
   chatId String
 }
 

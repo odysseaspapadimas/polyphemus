@@ -3,9 +3,10 @@ import { Message } from "prisma/generated/zod";
 type Props = {
   message: Message;
   mine: boolean;
+  last: boolean;
 };
 
-const Message = ({ message, mine }: Props) => {
+const Message = ({ message, mine, last }: Props) => {
   return (
     <div
       className={`${
@@ -15,19 +16,15 @@ const Message = ({ message, mine }: Props) => {
       <p
         className={`${
           mine
-            ? " border border-primary bg-primary"
-            : " bg-dark border-dark border"
+            ? " rounded-br-none border border-primary bg-primary"
+            : " rounded-bl-none border border-dark bg-dark"
         } my-1 break-all rounded-md px-4 py-2`}
       >
-        {message.content}{" "}
+        {message.content}
       </p>
-      {/* check if last message is read 
-       <p className="self-end text-sm text-gray-400">
-        {i === messageObj.messages.length - 1 &&
-          message.me &&
-          message.read.state &&
-          "Read"}
-      </p> */}
+      <p className="self-end text-sm text-gray-400">
+        {last && mine && message.read && "Read"}
+      </p>
     </div>
   );
 };

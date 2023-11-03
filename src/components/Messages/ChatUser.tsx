@@ -10,9 +10,10 @@ export type ArrayElement<ArrayType extends readonly unknown[]> =
 type Props = {
   chat: ArrayElement<RouterOutputs["messages"]["getChats"]>;
   session: Session;
+  selected?: string;
 };
 
-const ChatUser = ({ chat, session }: Props) => {
+const ChatUser = ({ chat, session, selected }: Props) => {
   const user = chat.users.find(
     (user) => user.username !== session.user.username,
   );
@@ -27,7 +28,10 @@ const ChatUser = ({ chat, session }: Props) => {
   return (
     <Link
       href={`/messages/${user.username}`}
-      className="flex items-center space-x-2 rounded-sm border border-dark-bg-hover px-4 py-2 hover:bg-dark-bg-hover w-full"
+      className={`flex w-full items-center space-x-2 rounded-sm border border-dark-bg-hover px-4 py-2 hover:bg-dark-bg-hover ${
+        selected === user.username && "bg-dark-bg-hover"
+      }`}
+      prefetch={false}
     >
       <Image
         src={user.image!}

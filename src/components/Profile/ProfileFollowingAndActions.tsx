@@ -27,7 +27,6 @@ const ProfileFollowingAndActions = ({ user, session }: Props) => {
     { placeholderData: user },
   );
 
-
   //non-null assertion because of placeholder data that is fetched on the server
   const followers = userQuery.data!.followers;
   const following = userQuery.data!.following;

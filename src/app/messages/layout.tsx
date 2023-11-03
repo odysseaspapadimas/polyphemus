@@ -19,7 +19,7 @@ const MessagesLayoutPage = async ({
 
   return (
     <Container className="flex">
-      <MessagesLayout chats={chats} session={session}>
+      <MessagesLayout initialChats={chats} session={session}>
         {children}
       </MessagesLayout>
     </Container>

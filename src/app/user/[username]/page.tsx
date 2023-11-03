@@ -51,7 +51,9 @@ const UserPage = async ({ params, searchParams }: Props) => {
           height={75}
           className="rounded-full"
         />
-        <h1 className="mt-2 md:mt-0 text-2xl font-semibold md:ml-4">{username}</h1>
+        <h1 className="mt-2 text-2xl font-semibold md:ml-4 md:mt-0">
+          {username}
+        </h1>
 
         <ProfileFollowingAndActions user={user} session={session} />
       </div>
