@@ -3,6 +3,7 @@ import type { PersonCombinedCreditsResponse } from "moviedb-promise";
 import Image from "next/image";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { getPlaiceholder } from "plaiceholder";
 import slug from "src/utils/slug";
 import { IMG_URL, tmdb } from "src/utils/tmdb";
 
@@ -24,6 +25,16 @@ const PersonPage = async ({ params }: Props) => {
     redirect(`/person/${slug(person.name)}-${person.id}`);
   }
 
+  let base64;
+  if (person.profile_path) {
+    const buffer = await fetch(IMG_URL(person.profile_path, 300)).then(
+      async (res) => Buffer.from(await res.arrayBuffer()),
+    );
+
+    const res = await getPlaiceholder(buffer);
+    base64 = res.base64;
+  }
+
   return (
     <Container
       my={36}
@@ -40,9 +51,7 @@ const PersonPage = async ({ params }: Props) => {
             src={IMG_URL(person.profile_path)}
             className="flex-1 rounded-md"
             placeholder="blur"
-            blurDataURL={`/_next/image?url=${IMG_URL(
-              person.profile_path,
-            )}&w=16&q=1`}
+            blurDataURL={base64}
           />
         )}
         <h2 className="whitespace my-2 text-2xl font-semibold">
