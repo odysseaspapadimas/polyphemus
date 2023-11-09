@@ -1,6 +1,7 @@
 import { Container } from "@mantine/core";
 import MediaResult from "src/components/Search/MediaResult";
 import Pagination from "src/components/Search/Pagination";
+import PersonResult from "src/components/Search/PersonResult";
 import UserResults from "src/components/Search/UserResults";
 import { api } from "src/trpc/server";
 import { tmdb } from "src/utils/tmdb";
@@ -36,11 +37,12 @@ const SearchPage = async ({ searchParams }: Props) => {
       <UserResults userResults={userResults} />
 
       <div className="my-9 flex flex-col space-y-4">
-        {results?.map(
-          (result) =>
-            result.media_type !== "person" && (
-              <MediaResult key={result.id} data={result} />
-            ),
+        {results?.map((result) =>
+          result.media_type === "person" ? (
+            <PersonResult key={result.id} data={result} />
+          ) : (
+            <MediaResult key={result.id} data={result} />
+          ),
         )}
       </div>
 
