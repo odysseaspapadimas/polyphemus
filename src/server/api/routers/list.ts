@@ -9,7 +9,7 @@ import {
   MediaTypeSchema,
   StatusSchema,
 } from "../../../../prisma/generated/zod";
-import { tmdb } from "src/utils/tmdb";
+import { tmdb } from "src/lib/tmdb";
 import type { MovieResponse, ShowResponse } from "moviedb-promise";
 
 export const listRouter = createTRPCRouter({

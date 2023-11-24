@@ -1,8 +1,8 @@
 import type { MovieResponse, ShowResponse } from "moviedb-promise";
 import Image from "next/image";
 import Link from "next/link";
-import slug from "src/utils/slug";
-import { IMG_URL } from "src/utils/tmdb";
+import slug from "src/lib/slug";
+import { IMG_URL } from "src/lib/tmdb";
 import MediaMenu from "../Media/MediaMenu";
 import type { Session } from "next-auth";
 

@@ -8,7 +8,7 @@ import type { MouseEvent } from "react";
 import useAddToList from "src/hooks/add-to-list";
 import useRemoveFromList from "src/hooks/remove-from-list";
 import { api } from "src/trpc/react";
-import { listDict } from "src/utils/dict";
+import { listDict } from "src/lib/dict";
 
 type Props = {
   mediaId: number;

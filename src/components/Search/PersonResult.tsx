@@ -7,8 +7,8 @@ import type {
 import Image from "next/image";
 import Link from "next/link";
 import { getPlaiceholder } from "plaiceholder";
-import slug from "src/utils/slug";
-import { IMG_URL } from "src/utils/tmdb";
+import slug from "src/lib/slug";
+import { IMG_URL } from "src/lib/tmdb";
 
 const PersonResult = async ({
   data,

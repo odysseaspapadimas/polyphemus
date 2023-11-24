@@ -3,11 +3,11 @@
 @tailwind utilities;
 
 .mantine-Button-root {
-  background-color: var(--button-bg);
+  background-color: var(--button-bg, #1971c2);
 }
 
 .mantine-Button-root:hover {
-  background-color: var(--button-hover) !important;
+  background-color: var(--button-hover, #1864AB) !important;
 }
 
 .mantine-Pagination-control[data-active] {

@@ -2,9 +2,9 @@ import type { MovieResult, TvResult } from "moviedb-promise";
 import Image from "next/image";
 import Link from "next/link";
 import MediaMenu from "./MediaMenu";
-import slug from "src/utils/slug";
+import slug from "src/lib/slug";
 import { getServerAuthSession } from "src/server/auth";
-import { IMG_URL, isMovie } from "src/utils/tmdb";
+import { IMG_URL, isMovie } from "src/lib/tmdb";
 import { getPlaiceholder } from "plaiceholder";
 
 const Media = async ({ data }: { data: MovieResult | TvResult }) => {
@@ -37,7 +37,7 @@ const Media = async ({ data }: { data: MovieResult | TvResult }) => {
   }
 
   return (
-    <div className="w-[140px] sm:w-[150px]">
+    <div className="aspect-[1/1.5] w-[160px]">
       <div className="relative">
         <div
           className="absolute left-2 top-2 z-10 grid h-[34px] w-[34px] place-items-center rounded-full border-[3px]"
@@ -50,14 +50,14 @@ const Media = async ({ data }: { data: MovieResult | TvResult }) => {
         >
           <span>{Math.round((data.vote_average ?? 0) * 10) / 10}</span>
         </div>
-        <Link href={link}>
+        <Link href={link} className="relative block aspect-[1/1.5] w-[160px]">
           <Image
             alt={`${type} poster`}
             src={IMG_URL(data.poster_path, 300)}
-            width={175}
-            height={262.5}
+            fill
+            sizes="100vh"
             className={`border border-transparent transition-all duration-200 ease-in-out hover:border-sky-300 group-hover:opacity-75`}
-            placeholder="blur"
+            placeholder={base64 ? "blur" : "empty"}
             blurDataURL={base64}
           />
         </Link>

@@ -1,11 +1,11 @@
 import Image from "next/image";
-import { IMG_URL, tmdb } from "src/utils/tmdb";
+import { IMG_URL, tmdb } from "src/lib/tmdb";
 import { Container, Text } from "@mantine/core";
 import type { Genre } from "moviedb-promise";
 import React from "react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import slug from "src/utils/slug";
+import slug from "src/lib/slug";
 import type { Metadata } from "next";
 import RatingRing from "src/components/Media/RatingRing";
 import UserActions from "src/components/MediaPage/UserActions/UserActions";

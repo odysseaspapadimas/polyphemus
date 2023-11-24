@@ -3,7 +3,7 @@
 import { ActionIcon, Tooltip } from "@mantine/core";
 import type { Status } from "@prisma/client";
 import { IconCheck, IconEye, IconPlus } from "@tabler/icons-react";
-import { listText } from "src/utils/dict";
+import { listText } from "src/lib/dict";
 
 export type ToggleOnListButtonProps = {
   onList?: Status;

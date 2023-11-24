@@ -4,7 +4,7 @@ import Pagination from "src/components/Search/Pagination";
 import PersonResult from "src/components/Search/PersonResult";
 import UserResults from "src/components/Search/UserResults";
 import { api } from "src/trpc/server";
-import { tmdb } from "src/utils/tmdb";
+import { tmdb } from "src/lib/tmdb";
 
 type Props = {
   searchParams: {

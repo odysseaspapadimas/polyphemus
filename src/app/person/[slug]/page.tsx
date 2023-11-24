@@ -4,8 +4,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getPlaiceholder } from "plaiceholder";
-import slug from "src/utils/slug";
-import { IMG_URL, tmdb } from "src/utils/tmdb";
+import slug from "src/lib/slug";
+import { IMG_URL, tmdb } from "src/lib/tmdb";
 
 type Props = {
   params: {

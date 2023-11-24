@@ -1,4 +1,4 @@
-import { IMG_URL, tmdb } from "src/utils/tmdb";
+import { IMG_URL, tmdb } from "src/lib/tmdb";
 
 import { Container, Text } from "@mantine/core";
 import type { Genre } from "moviedb-promise";
@@ -6,12 +6,12 @@ import React from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import slug from "src/utils/slug";
+import slug from "src/lib/slug";
 import type { Metadata } from "next";
 import { api } from "src/trpc/server";
 import RatingRing from "src/components/Media/RatingRing";
 import UserActions from "src/components/MediaPage/UserActions/UserActions";
-import { trakt } from "src/utils/trakt";
+import { trakt } from "src/lib/trakt";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
 import timezone from "dayjs/plugin/timezone";
