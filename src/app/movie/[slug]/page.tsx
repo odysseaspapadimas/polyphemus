@@ -1,7 +1,7 @@
 import Image from "next/image";
 import { IMG_URL, tmdb } from "src/lib/tmdb";
 import { Container, Text } from "@mantine/core";
-import type { Genre } from "moviedb-promise";
+import type { CreditsResponse, Genre, MovieResponse } from "moviedb-promise";
 import React from "react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -12,6 +12,7 @@ import UserActions from "src/components/MediaPage/UserActions/UserActions";
 import { api } from "src/trpc/server";
 import { getPlaiceholder } from "plaiceholder";
 import { IconPhotoOff } from "@tabler/icons-react";
+import Credits from "src/components/Movie/Credits";
 
 type Props = {
   params: {
@@ -60,7 +61,7 @@ const MoviePage = async ({ params }: Props) => {
             />
           )}
         </div>
-        <Container className="relative grid h-full place-items-center py-10 sm:flex sm:items-center sm:py-20">
+        <Container className="relative grid h-full place-items-center py-10 sm:flex sm:items-center sm:py-20 md:h-screen-header">
           <div className="flex flex-col items-center justify-center">
             {movie.poster_path ? (
               <Image
@@ -79,7 +80,7 @@ const MoviePage = async ({ params }: Props) => {
             )}
           </div>
 
-          <div className="mt-8 flex flex-1 flex-col sm:ml-8 sm:max-w-2xl">
+          <div className="mt-8 flex flex-1 flex-col justify-center sm:ml-8 sm:mt-0 sm:max-w-2xl">
             <div className="flex">
               <p className="text-3xl font-semibold">
                 {movie.title}
@@ -158,6 +159,9 @@ const MoviePage = async ({ params }: Props) => {
           </div>
         </Container>
       </div>
+      <Container>
+        <Credits credits={movie.credits} />
+      </Container>
     </>
   );
 };
@@ -171,7 +175,7 @@ const getMovieInfo = async (slug: string) => {
     append_to_response: "credits",
   });
 
-  return movieData;
+  return movieData as MovieResponse & { credits: CreditsResponse };
 };
 
 const getInitialStatus = async (id: number) => {

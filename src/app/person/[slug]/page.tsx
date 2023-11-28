@@ -19,8 +19,6 @@ type GroupedCrew = Record<string, PersonCombinedCreditsResponse["crew"]>;
 const PersonPage = async ({ params }: Props) => {
   const { person, knownFor, credits } = await getData(params.slug);
 
-  console.log(knownFor, "knnownfor");
-
   if (!params.slug.split("-").slice(1).join("-")) {
     redirect(`/person/${slug(person.name)}-${person.id}`);
   }
