@@ -1,12 +1,18 @@
 "use client";
 
 import { Select } from "@mantine/core";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { createUrl } from "src/lib/utils";
+import type { DiscoverMovieRequest, DiscoverTvRequest } from "moviedb-promise";
+import { usePathname } from "next/navigation";
+import { useEffect, type Dispatch, type SetStateAction } from "react";
 
-const Sort = () => {
-  const router = useRouter();
-  const searchParams = useSearchParams();
+type Props = {
+  filters: DiscoverMovieRequest | DiscoverTvRequest;
+  setFilters: Dispatch<
+    SetStateAction<DiscoverMovieRequest | DiscoverTvRequest>
+  >;
+};
+
+const Sort = ({ filters, setFilters }: Props) => {
   const pathname = usePathname();
 
   const type = pathname === "/movies" ? "movies" : "shows";
@@ -26,22 +32,31 @@ const Sort = () => {
     },
   ];
 
+
+  useEffect(() => {
+    console.log(filters, 'updatedfilters')
+  }, [filters])
+
   return (
     <div>
       <p>Sort by</p>
       <Select
         className="min-w-fit self-center"
-        value={searchParams.get("sort_by") ?? selectData[0]?.value}
+        value={filters?.sort_by ?? selectData[0]?.value}
         onChange={(value) => {
-          const newParams = new URLSearchParams(searchParams.toString());
-
           if (value === selectData[0]?.value) {
-            newParams.delete("sort_by");
+            // Create a new filters object excluding 'sort_by'
+            const newFilters = { ...filters };
+            delete newFilters.sort_by;
+            setFilters({ ...newFilters });
           } else if (value) {
-            newParams.set("sort_by", value);
+            // Create a new filters object including the updated 'sort_by'
+            const newFilters = { ...filters, sort_by: value };
+            console.log(newFilters, 'new filters');
+            setFilters({ ...newFilters });
           }
 
-          router.push(createUrl("/" + type, newParams));
+          // router.push(createUrl("/" + type, newParams));
         }}
         data={selectData}
       />

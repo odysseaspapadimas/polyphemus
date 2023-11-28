@@ -4,7 +4,6 @@ import { Button, Skeleton } from "@mantine/core";
 import type { DiscoverMovieRequest, DiscoverTvRequest } from "moviedb-promise";
 import { usePathname } from "next/navigation";
 import React from "react";
-import { tmdb } from "src/lib/tmdb";
 import { api } from "src/trpc/react";
 
 type Props = {
@@ -18,8 +17,13 @@ const Genres = ({ filters, setFilters }: Props) => {
   const type = pathname === "/movies" ? "MOVIE" : "SHOW";
   const genresList = api.media.getGenres.useQuery(
     { type },
-    { cacheTime: 1000 * 60 * 60 * 24 * 7 },
+    {
+      refetchOnMount: false,
+      refetchOnReconnect: false,
+      refetchOnWindowFocus: false,
+    },
   );
+
 
   const handleGenre = (id: number | undefined) => {
     const newFilters = filters;
@@ -60,10 +64,10 @@ const Genres = ({ filters, setFilters }: Props) => {
             <Button
               key={id}
               onClick={() => handleGenre(id)}
-              className={`mb-2 mr-2 rounded-xl border border-gray-400 !bg-transparent px-2 hover:border-transparent hover:!bg-primary ${
+              className={`mb-2 mr-2 rounded-xl border border-gray-400 px-2 hover:border-transparent hover:!bg-primary ${
                 filters.with_genres?.includes(String(id))
                   ? "border-transparent !bg-[#1864AB]"
-                  : ""
+                  : "!bg-transparent"
               }`}
             >
               {name}

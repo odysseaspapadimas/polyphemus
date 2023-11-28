@@ -33,7 +33,7 @@
     "drizzle-orm": "^0.28.6",
     "drizzle-zod": "^0.5.1",
     "moviedb-promise": "^4.0.3",
-    "next": "14.0.0",
+    "next": "^14.0.3",
     "next-auth": "^4.24.4",
     "plaiceholder": "^3.0.0",
     "react": "18.2.0",

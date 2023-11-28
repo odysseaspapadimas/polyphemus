@@ -16,20 +16,24 @@ const MediaSection = async ({
     | ShowsPageProps["searchParams"];
 }) => {
   if (type === "MOVIE") {
-    const params = searchParams as MoviesPageProps["searchParams"];
+    //eslint-disable-next-line
+    const { page: _, ...params } =
+      searchParams as MoviesPageProps["searchParams"];
     const requestParams: DiscoverMovieRequest = {
       page,
-      sort_by: params.sort_by ?? "popularity.desc",
+      ...params,
     };
 
     const { results: movies } = await tmdb.discoverMovie(requestParams);
 
     return <>{movies?.map((media) => <Media key={media.id} data={media} />)}</>;
   } else if (type === "SHOW") {
-    const params = searchParams as ShowsPageProps["searchParams"];
+    //eslint-disable-next-line
+    const { page: _, ...params } =
+      searchParams as ShowsPageProps["searchParams"];
     const requestParams: DiscoverTvRequest = {
       page,
-      sort_by: params.sort_by ?? "popularity.desc",
+      ...params,
     };
 
     const { results: shows } = await tmdb.discoverTv(requestParams);

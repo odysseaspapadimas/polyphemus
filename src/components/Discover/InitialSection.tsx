@@ -14,9 +14,10 @@ type Props = {
 
 const InitialSection = async ({ type, searchParams }: Props) => {
   if (type === "MOVIE") {
-    const params = searchParams as MoviesPageProps["searchParams"];
+    //eslint-disable-next-line
+    const { page, ...params } = searchParams as MoviesPageProps["searchParams"];
     const requestParams: DiscoverMovieRequest = {
-      sort_by: params.sort_by ?? "popularity.desc",
+      ...params,
     };
 
     const { results: movies } = await tmdb.discoverMovie(requestParams);
@@ -27,7 +28,11 @@ const InitialSection = async ({ type, searchParams }: Props) => {
       </div>
     );
   } else if (type === "SHOW") {
-    const { results: shows } = await tmdb.discoverTv();
+    //eslint-disable-next-line
+    const { page, ...params } = searchParams as ShowsPageProps["searchParams"];
+    const { results: shows } = await tmdb.discoverTv({
+      ...params,
+    });
 
     return (
       <div className="relative grid grid-cols-[repeat(auto-fit,minmax(140px,1fr))] justify-items-center gap-y-2 sm:grid-cols-[repeat(auto-fit,minmax(150px,1fr))] md:gap-2">

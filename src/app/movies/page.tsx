@@ -10,7 +10,10 @@ import MediaSection from "src/components/Discover/MediaSection";
 export type MoviesPageProps = {
   searchParams: {
     page: string;
-    sort_by: DiscoverMovieRequest["sort_by"];
+    sort_by?: DiscoverMovieRequest["sort_by"];
+    with_genres?: string;
+    "vote_average.gte"?: number;
+    "vote_average.lte"?: number;
   };
 };
 
