@@ -6,6 +6,7 @@ import slug from "src/lib/slug";
 import { getServerAuthSession } from "src/server/auth";
 import { IMG_URL, isMovie } from "src/lib/tmdb";
 import { getPlaiceholder } from "plaiceholder";
+import { IconPhotoOff } from "@tabler/icons-react";
 
 const Media = async ({ data }: { data: MovieResult | TvResult }) => {
   let name, release_date, link;
@@ -51,15 +52,21 @@ const Media = async ({ data }: { data: MovieResult | TvResult }) => {
           <span>{Math.round((data.vote_average ?? 0) * 10) / 10}</span>
         </div>
         <Link href={link} className="relative block aspect-[1/1.5] w-[160px]">
-          <Image
-            alt={`${type} poster`}
-            src={IMG_URL(data.poster_path, 300)}
-            fill
-            sizes="100vh"
-            className={`border border-transparent transition-all duration-200 ease-in-out hover:border-sky-300 group-hover:opacity-75`}
-            placeholder={base64 ? "blur" : "empty"}
-            blurDataURL={base64}
-          />
+          {data.poster_path ? (
+            <Image
+              alt={`${type} poster`}
+              src={IMG_URL(data.poster_path, 300)}
+              fill
+              sizes="100vh"
+              className={`border border-transparent transition-all duration-200 ease-in-out hover:border-sky-300 group-hover:opacity-75`}
+              placeholder={base64 ? "blur" : "empty"}
+              blurDataURL={base64}
+            />
+          ) : (
+            <div className="grid w-full h-full place-items-center bg-slate-700">
+              <IconPhotoOff />
+            </div>
+          )}
         </Link>
         {session && (
           <MediaMenu
