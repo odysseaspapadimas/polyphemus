@@ -34,6 +34,7 @@ const HeaderUserMenu = ({ session }: Props) => {
     const channel = pusher.subscribe("chat");
 
     channel.bind("message", async () => {
+      console.log("message received header");
       await utils.messages.unreadCount.refetch();
     });
 

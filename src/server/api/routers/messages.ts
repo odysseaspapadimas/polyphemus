@@ -129,7 +129,7 @@ export const messagesRouter = createTRPCRouter({
         },
       });
 
-      await pusher.trigger("chat", "message", {});
+      await pusher.trigger("chat", "message", {}, {socket_id: input.socketId});
     }),
   unreadCount: protectedProcedure.query(async ({ ctx }) => {
     const res = await ctx.db.chat.count({

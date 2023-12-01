@@ -41,6 +41,7 @@ const MessagesLayout = ({ initialChats, session, children }: Props) => {
       const channel = pusher.subscribe("chat");
 
       channel.bind("message", async () => {
+        console.log("message received");
         await utils.messages.getChat.refetch({ username });
         await utils.messages.getChats.refetch();
         await utils.messages.unreadCount.refetch();

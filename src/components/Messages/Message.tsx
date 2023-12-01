@@ -1,4 +1,4 @@
-import { Message } from "prisma/generated/zod";
+import type { Message } from "prisma/generated/zod";
 
 type Props = {
   message: Message;
@@ -6,7 +6,7 @@ type Props = {
   last: boolean;
 };
 
-const Message = ({ message, mine, last }: Props) => {
+const MessageComponent = ({ message, mine, last }: Props) => {
   return (
     <div
       className={`${
@@ -28,4 +28,4 @@ const Message = ({ message, mine, last }: Props) => {
     </div>
   );
 };
-export default Message;
+export default MessageComponent;
