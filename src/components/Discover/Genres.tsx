@@ -24,7 +24,6 @@ const Genres = ({ filters, setFilters }: Props) => {
     },
   );
 
-
   const handleGenre = (id: number | undefined) => {
     const newFilters = filters;
 
@@ -49,30 +48,33 @@ const Genres = ({ filters, setFilters }: Props) => {
   };
 
   return (
-    <div className="my-4 flex max-w-fit flex-wrap items-center">
-      {genresList.isLoading
-        ? new Array(19).fill(0).map((_, i) => (
-            <Skeleton
-              key={i}
-              className="mx-2 mb-2 h-[34px] rounded-xl border border-gray-400 !bg-transparent px-2 hover:border-transparent hover:!bg-primary"
-              style={{
-                width: Math.floor(Math.random() * (85 - 61 + 1)) + 61,
-              }}
-            ></Skeleton>
-          ))
-        : genresList.data?.map(({ id, name }) => (
-            <Button
-              key={id}
-              onClick={() => handleGenre(id)}
-              className={`mb-2 mr-2 rounded-xl border border-gray-400 px-2 hover:border-transparent hover:!bg-primary ${
-                filters.with_genres?.includes(String(id))
-                  ? "border-transparent !bg-[#1864AB]"
-                  : "!bg-transparent"
-              }`}
-            >
-              {name}
-            </Button>
-          ))}
+    <div className="mt-4">
+      <h2>Genres</h2>
+      <div className="mb-4 mt-2 flex max-w-fit flex-wrap items-center">
+        {genresList.isLoading
+          ? new Array(19).fill(0).map((_, i) => (
+              <Skeleton
+                key={i}
+                className="mx-2 mb-2 h-[34px] rounded-xl border border-gray-400 !bg-transparent px-2 hover:border-transparent hover:!bg-primary"
+                style={{
+                  width: Math.floor(Math.random() * (85 - 61 + 1)) + 61,
+                }}
+              ></Skeleton>
+            ))
+          : genresList.data?.map(({ id, name }) => (
+              <Button
+                key={id}
+                onClick={() => handleGenre(id)}
+                className={`mb-2 mr-2 rounded-xl border border-gray-400 px-2 hover:border-transparent hover:!bg-primary ${
+                  filters.with_genres?.includes(String(id))
+                    ? "border-transparent !bg-[#1864AB]"
+                    : "!bg-transparent"
+                }`}
+              >
+                {name}
+              </Button>
+            ))}
+      </div>
     </div>
   );
 };

@@ -19,8 +19,8 @@ export const isMovie = (data: MovieResult | TvResult): data is MovieResult => {
 };
 
 export const isMovieRequest = (
-  filters: (DiscoverMovieRequest | DiscoverTvRequest) & { page: number },
-): filters is DiscoverMovieRequest & { page: number } => {
+  filters: (DiscoverMovieRequest | DiscoverTvRequest) & { page?: number },
+): filters is DiscoverMovieRequest & { page?: number } => {
   return (
     (filters as DiscoverMovieRequest)["primary_release_date.lte"] !== undefined
   );

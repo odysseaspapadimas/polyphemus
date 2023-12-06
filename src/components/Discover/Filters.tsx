@@ -7,6 +7,8 @@ import type { DiscoverMovieRequest, DiscoverTvRequest } from "moviedb-promise";
 import Genres from "./Genres";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { createUrl } from "src/lib/utils";
+import { DatePickerInput } from "@mantine/dates";
+import dayjs from "dayjs";
 
 const Filters = () => {
   const router = useRouter();
@@ -50,6 +52,60 @@ const Filters = () => {
     }
 
     setFilters(newFilters);
+  };
+
+  const [fromDate, setFromDate] = useState<Date | null>(null);
+  const [toDate, setToDate] = useState<Date | null>(new Date());
+
+  const handleDate = (date: Date | null, label: "from" | "to") => {
+    const isMovies = pathname === "/movies";
+
+    const movieFilters = filters as DiscoverMovieRequest;
+    const tvFilters = filters as DiscoverTvRequest;
+
+    if (label === "to" && date && fromDate) {
+      if (fromDate > date) {
+        setFromDate(date);
+      }
+    }
+
+    if (label === "from") {
+      if (!isMovies) {
+        if (!date) {
+          delete tvFilters["air_date.gte"];
+        } else {
+          tvFilters["air_date.gte"] = dayjs(date).format("YYYY-MM-DD");
+        }
+      } else if (isMovies) {
+        if (!date) {
+          delete movieFilters["primary_release_date.gte"];
+        } else {
+          movieFilters["primary_release_date.gte"] =
+            dayjs(date).format("YYYY-MM-DD");
+        }
+      }
+    } else {
+      if (!isMovies) {
+        if (!date) {
+          delete tvFilters["air_date.lte"];
+        } else {
+          tvFilters["air_date.lte"] = dayjs(date).format("YYYY-MM-DD");
+        }
+      } else {
+        if (!date) {
+          delete movieFilters["primary_release_date.lte"];
+        } else {
+          movieFilters["primary_release_date.lte"] =
+            dayjs(date).format("YYYY-MM-DD");
+        }
+      }
+    }
+
+    if (isMovies) {
+      setFilters(movieFilters);
+    } else {
+      setFilters(tvFilters);
+    }
   };
 
   const [loading, setLoading] = useState(false);
@@ -97,6 +153,34 @@ const Filters = () => {
           { value: 100, label: "10" },
         ]}
       />
+
+      <div>
+        <h2>Release Date</h2>
+        <DatePickerInput
+          value={fromDate}
+          onChange={(e) => {
+            handleDate(e, "from");
+            setFromDate(e);
+          }}
+          maxDate={toDate ? toDate : undefined}
+          placeholder="Pick date"
+          valueFormat="MM/DD/YYYY"
+          label="From"
+        />
+        <DatePickerInput
+          value={toDate}
+          onChange={(e) => {
+            handleDate(e, "to");
+            if (e) {
+              setToDate(e);
+            }
+          }}
+          placeholder="Pick date"
+          valueFormat="MM/DD/YYYY"
+          label="To"
+          defaultValue={new Date()}
+        />
+      </div>
 
       <Genres filters={filters} setFilters={setFilters} />
 

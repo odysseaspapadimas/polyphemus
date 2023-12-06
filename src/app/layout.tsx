@@ -1,5 +1,6 @@
 import "@mantine/core/styles.css";
 import "@mantine/notifications/styles.css";
+import '@mantine/dates/styles.css';
 import "src/styles/globals.css";
 
 import { Manrope } from "next/font/google";
