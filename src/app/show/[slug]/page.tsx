@@ -23,6 +23,7 @@ import customParseFormat from "dayjs/plugin/customParseFormat";
 import Airs from "src/components/Show/Airs";
 import { getPlaiceholder } from "plaiceholder";
 import Credits from "src/components/Show/Credits";
+import { IconPhotoOff } from "@tabler/icons-react";
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
@@ -87,15 +88,20 @@ const ShowPage = async ({ params }: Props) => {
         </div>
         <Container className="relative h-full py-10 sm:flex sm:py-20 md:h-screen-header">
           <div className="flex flex-col items-center justify-center">
-            <Image
-              height={450}
-              width={300}
-              alt="show poster"
-              src={IMG_URL(show.poster_path, 300)}
-              placeholder={show.poster_path ? "blur" : undefined}
-              blurDataURL={base64}
-            />
-
+            {show.poster_path ? (
+              <Image
+                height={450}
+                width={300}
+                alt="show poster"
+                src={IMG_URL(show.poster_path, 300)}
+                placeholder={show.poster_path ? "blur" : undefined}
+                blurDataURL={base64}
+              />
+            ) : (
+              <div className="grid h-[450px] w-[300px] place-items-center rounded-md bg-gray-700">
+                <IconPhotoOff />
+              </div>
+            )}
             {/* {session && <FriendActivity type={type} id={showId} />} */}
           </div>
           <div className="mt-4 flex flex-1 flex-col justify-center sm:ml-8 sm:mt-0 sm:max-w-2xl">
