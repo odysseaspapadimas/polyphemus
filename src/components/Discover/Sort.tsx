@@ -33,10 +33,6 @@ const Sort = ({ filters, setFilters }: Props) => {
   ];
 
 
-  useEffect(() => {
-    console.log(filters, 'updatedfilters')
-  }, [filters])
-
   return (
     <div>
       <p>Sort by</p>
@@ -52,7 +48,6 @@ const Sort = ({ filters, setFilters }: Props) => {
           } else if (value) {
             // Create a new filters object including the updated 'sort_by'
             const newFilters = { ...filters, sort_by: value };
-            console.log(newFilters, 'new filters');
             setFilters({ ...newFilters });
           }
 

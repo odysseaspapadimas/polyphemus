@@ -15,7 +15,6 @@ const PersonResult = async ({
 }: {
   data: PersonResultType & { known_for_department?: string };
 }) => {
-  console.log(data);
   let base64;
   if (data.profile_path) {
     const buffer = await fetch(IMG_URL(data.profile_path, 300)).then(

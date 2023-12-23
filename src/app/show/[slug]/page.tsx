@@ -63,6 +63,8 @@ const ShowPage = async ({ params }: Props) => {
 
   const airTime = await getAirTime(params.slug);
 
+  const lastSeason = show?.seasons?.[show.seasons.length - 1];
+
   let base64 = undefined;
   if (show.poster_path) {
     const buffer = await fetch(IMG_URL(show.poster_path, 300)).then(
@@ -241,7 +243,7 @@ const ShowPage = async ({ params }: Props) => {
           </div>
         </Container>
       </div>
-      <Container>
+      <Container pb={16}>
         <div className="flex w-full flex-col md:flex-row md:space-x-4 ">
           <Credits credits={show.aggregate_credits} />
 
@@ -278,6 +280,59 @@ const ShowPage = async ({ params }: Props) => {
             )}
           </div>
         </div>
+        {lastSeason && (
+          <div>
+            <h2 className="mb-4 text-2xl font-semibold">Last Season</h2>
+            <div className="flex items-center space-x-4">
+              <Link
+                href={`/show/${params.slug}/season/${lastSeason.season_number}`}
+              >
+                <div style={{ width: 150, height: 225 }}>
+                  {lastSeason.poster_path ? (
+                    <Image
+                      src={IMG_URL(lastSeason.poster_path)}
+                      alt="last season poster"
+                      width={150}
+                      height={225}
+                      layout="fixed"
+                      className="rounded-l-md"
+                    />
+                  ) : (
+                    <div className="bg-dark h-[225px] w-[150px]"></div>
+                  )}
+                </div>
+              </Link>
+              <div>
+                <div>
+                  <Link
+                    href={`/show/${params.slug}/season/${lastSeason.season_number}`}
+                  >
+                    <h3 className="text-xl font-semibold hover:text-gray-300">
+                      {lastSeason.name}
+                    </h3>
+                  </Link>
+                  <span className="font-medium">
+                    {lastSeason?.air_date?.split("-")[0]} |{" "}
+                    {lastSeason.episode_count} Episodes
+                  </span>
+                </div>
+                <div className="mt-4">
+                  {lastSeason.overview?.split("\n").map((text, i) => (
+                    <p key={i} className="mb-2">
+                      {text}
+                    </p>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <Link href={`/show/${params.slug}/seasons`}>
+              <h3 className="mt-2 text-lg font-semibold hover:text-gray-300">
+                View All Seasons
+              </h3>
+            </Link>
+          </div>
+        )}
       </Container>
     </>
   );

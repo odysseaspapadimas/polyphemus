@@ -20,8 +20,6 @@ export type MoviesPageProps = {
 const MoviesPage = ({ searchParams }: MoviesPageProps) => {
   const page = parseInt(searchParams.page ?? "1");
 
-  console.log(searchParams, "params");
-
   return (
     <Container my={36} className="flex flex-col md:flex-row md:space-x-4">
       <div className="mb-4 flex flex-1 flex-col space-y-2">
