@@ -1,8 +1,10 @@
 "use client";
 
+import type { Session } from "next-auth";
 import Pusher from "pusher-js";
-import { createContext, useEffect, useMemo, useState } from "react";
+import { createContext, useEffect, useMemo, useRef, useState } from "react";
 import { env } from "src/env.mjs";
+import { api } from "src/trpc/react";
 
 type PusherContextType = {
   pusher: Pusher | null;
@@ -14,7 +16,13 @@ export const PusherContext = createContext<PusherContextType>({
   socketId: undefined,
 });
 
-const PusherProvider = ({ children }: { children: React.ReactNode }) => {
+const PusherProvider = ({
+  children,
+  session,
+}: {
+  children: React.ReactNode;
+  session: Session | null;
+}) => {
   const pusher = useMemo(
     () =>
       new Pusher(env.NEXT_PUBLIC_PUSHER_KEY, {
@@ -25,6 +33,45 @@ const PusherProvider = ({ children }: { children: React.ReactNode }) => {
 
   const [socketId, setSocketId] =
     useState<PusherContextType["socketId"]>(undefined);
+
+  const utils = api.useContext();
+  const initialized = useRef(false);
+
+  useEffect(() => {
+    if (!pusher || !session) return;
+    if (!initialized.current) {
+      initialized.current = true;
+      const username = session.user.username;
+      if (!username) return;
+
+      const channel = pusher.subscribe(username);
+
+      channel.bind("read", async ({ username }: { username: string }) => {
+        console.log("read", username);
+        //this gets triggered by the receiver
+        await utils.messages.getChat.refetch({ username });
+        await utils.messages.getChats.refetch();
+        // await utils.messages.unreadCount.refetch();
+      });
+      channel.bind("message", async ({ username }: { username: string }) => {
+        console.log("message received", username);
+        //this gets triggered by the sender
+        await utils.messages.getChat.refetch({ username });
+        await utils.messages.getChats.refetch();
+        await utils.messages.unreadCount.refetch();
+      });
+    }
+
+    // return () => {
+    //   pusher.unsubscribe("chat");
+    // };
+  }, [
+    utils.messages.getChat,
+    utils.messages.getChats,
+    utils.messages.unreadCount,
+    session,
+    pusher,
+  ]);
 
   useEffect(() => {
     pusher.connection.bind("connected", () => {

@@ -5,7 +5,7 @@ import { ScrollArea } from "@mantine/core";
 import { useEffect, useRef } from "react";
 
 type Props = {
-  chat: RouterOutputs["messages"]["getChat"];
+  chat: RouterOutputs["messages"]["getChat"]["chat"];
   session: Session;
 };
 

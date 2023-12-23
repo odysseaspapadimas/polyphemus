@@ -31,6 +31,7 @@ const config = {
       },
     ],
     "@typescript-eslint/no-unnecessary-type-assertion": "off",
+    "@typescript-eslint/prefer-optional-chain": "off",
   },
 };
 

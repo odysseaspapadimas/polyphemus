@@ -1,14 +1,13 @@
 "use client";
 
 import { Avatar, Indicator, Menu, MenuItem, Modal } from "@mantine/core";
-import { useContext, useEffect, useState } from "react";
+import { useState } from "react";
 import SignInSignUp from "./SignInSignUp";
 import type { Session } from "next-auth";
 import Link from "next/link";
 import { signIn, signOut } from "next-auth/react";
 import UserMenuMessages from "./UserMenuMessages";
 import { api } from "src/trpc/react";
-import { PusherContext } from "src/providers/PusherProvider";
 
 type Props = {
   session: Session | null;
@@ -23,23 +22,6 @@ const HeaderUserMenu = ({ session }: Props) => {
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
   });
-
-  const { pusher } = useContext(PusherContext);
-  const utils = api.useContext();
-
-  useEffect(() => {
-    if (!pusher) return;
-
-    console.log("4 times");
-    const channel = pusher.subscribe("chat");
-
-    channel.bind("message", async () => {
-      console.log("message received header");
-      await utils.messages.unreadCount.refetch();
-    });
-
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pusher]);
 
   return (
     <>

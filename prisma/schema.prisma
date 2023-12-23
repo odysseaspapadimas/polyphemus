@@ -66,9 +66,9 @@ model Message {
   readAt  DateTime?
 
   senderUsername String
-  sender         User   @relation(fields: [senderUsername], references: [username])
+  sender         User   @relation(fields: [senderUsername], references: [username], onDelete: Cascade)
 
-  chat   Chat   @relation(fields: [chatId], references: [id])
+  chat   Chat   @relation(fields: [chatId], references: [id], onDelete: Cascade)
   chatId String
 }
 

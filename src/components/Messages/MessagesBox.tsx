@@ -8,7 +8,6 @@ import Messages from "./Messages";
 import type { Session } from "next-auth";
 import { Center, Loader, Skeleton } from "@mantine/core";
 import React, { useContext, useEffect } from "react";
-import { redirect } from "next/navigation";
 import { PusherContext } from "src/providers/PusherProvider";
 const MessagesBox = ({
   username,
@@ -17,34 +16,34 @@ const MessagesBox = ({
   username: string;
   session: Session;
 }) => {
-  const chat = api.messages.getChat.useQuery(
+  const chatQuery = api.messages.getChat.useQuery(
     { username },
     {
-      refetchOnMount: false,
+      refetchOnMount: true,
       refetchOnWindowFocus: false,
       refetchOnReconnect: false,
     },
   );
 
-  const user = chat.data?.users.find((user) => user.username === username);
+  const user = chatQuery.data?.chat
+    ? chatQuery.data.chat.users.find((user) => user.username === username)
+    : chatQuery.data?.user;
 
-  if (chat.isFetched && !user) {
-    redirect("/messages");
-  }
-
-  // const utils = api.useContext();
+  const utils = api.useContext();
   const readMessage = api.messages.read.useMutation({
     onSuccess: async () => {
-      // await utils.messages.getChats.refetch();
-      // await utils.messages.getChat.refetch();
+      await utils.messages.getChats.refetch();
+      await utils.messages.getChat.refetch({ username });
+      await utils.messages.unreadCount.refetch();
     },
   });
 
   const { socketId } = useContext(PusherContext);
 
   useEffect(() => {
-    if (!chat.data) return;
-    const lastMessage = chat.data.messages[chat.data.messages.length - 1];
+    if (!chatQuery.data || !chatQuery.data.chat) return;
+    const lastMessage =
+      chatQuery.data.chat?.messages[chatQuery.data.chat.messages.length - 1];
 
     if (
       lastMessage &&
@@ -53,12 +52,16 @@ const MessagesBox = ({
     ) {
       console.log("read msg");
 
-      readMessage.mutate({ chatId: chat.data.id, socketId });
+      readMessage.mutate({
+        chatId: chatQuery.data.chat.id,
+        socketId,
+        username,
+      });
     }
 
     //readMessage dependency causes infinite loop which makes sense
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [chat.data, session.user]);
+  }, [chatQuery.data, session.user]);
 
   return (
     <>
@@ -83,14 +86,14 @@ const MessagesBox = ({
         </Link>
       </div>
 
-      {chat.isLoading ? (
+      {chatQuery.isLoading ? (
         <Center className="h-screen-messages-mobile w-full">
           <Loader />
         </Center>
       ) : (
-        chat.data !== null &&
-        chat.data !== undefined && (
-          <Messages chat={chat.data} session={session} />
+        chatQuery.data !== null &&
+        chatQuery.data !== undefined && (
+          <Messages chat={chatQuery.data.chat} session={session} />
         )
       )}
     </>

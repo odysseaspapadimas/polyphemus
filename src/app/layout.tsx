@@ -11,6 +11,7 @@ import Header from "src/components/Header/Header";
 import CheckUsername from "src/components/CheckUsername/CheckUsername";
 import { Notifications } from "@mantine/notifications";
 import PusherProvider from "src/providers/PusherProvider";
+import { getServerAuthSession } from "src/server/auth";
 
 const inter = Manrope({ subsets: ["latin"] });
 
@@ -20,11 +21,12 @@ export const metadata = {
   icons: [{ rel: "icon", url: "/favicon.ico" }],
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const session = await getServerAuthSession();
   return (
     <html lang="en">
       <head>
@@ -54,7 +56,7 @@ export default function RootLayout({
           >
             <Notifications />
             <CheckUsername />
-            <PusherProvider>
+            <PusherProvider session={session}>
               <Header />
               {children}
             </PusherProvider>

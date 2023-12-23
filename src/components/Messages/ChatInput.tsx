@@ -35,30 +35,33 @@ const ChatInput = ({ username }: Props) => {
   const sendMessage = api.messages.send.useMutation({
     onMutate: async ({ content, to }) => {
       await utils.messages.getChat.cancel();
-      utils.messages.getChat.setData({ username }, (chat) => {
-        if (!chat) return chat;
+      utils.messages.getChat.setData({ username }, (chatQuery) => {
+        if (!chatQuery?.chat) return chatQuery;
         const newMessage = {
           id: crypto.randomUUID(),
           content,
           createdAt: new Date(),
-          chatId: chat.id,
+          chatId: chatQuery.chat.id,
           read: false,
           readAt: null,
           updatedAt: new Date(),
           //chat has 2 users, my user is the one that i'm not sending to
-          senderUsername: chat.users.find((user) => user.username !== to)!
-            .username!,
+          senderUsername: chatQuery.chat.users.find(
+            (user) => user.username !== to,
+          )!.username!,
         };
         return {
-          ...chat,
-          messages: [...chat.messages, { ...newMessage }],
+          ...chatQuery,
+          chat: {
+            ...chatQuery.chat,
+            messages: [...chatQuery.chat.messages, newMessage],
+          },
         };
       });
     },
     onSuccess: async () => {
-      //i don't need to invalidate because i'm refetching on message send with pusher
-      //i need to move pusher higher up in the component tree and use socket_id to exclude myself
-      // await utils.messages.getChat.invalidate({ username });
+      await utils.messages.getChat.invalidate({ username });
+      await utils.messages.getChats.invalidate();
     },
   });
 

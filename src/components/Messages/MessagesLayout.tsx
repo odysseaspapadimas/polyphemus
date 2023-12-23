@@ -5,8 +5,9 @@ import ChatUser from "./ChatUser";
 import type { Session } from "next-auth";
 import { useParams } from "next/navigation";
 import { api } from "src/trpc/react";
-import { useContext, useEffect, useRef } from "react";
-import { PusherContext } from "src/providers/PusherProvider";
+import { useState } from "react";
+import NewMessage from "./NewMessage";
+import { Group } from "@mantine/core";
 
 type Props = {
   initialChats: RouterOutputs["messages"]["getChats"];
@@ -28,62 +29,56 @@ const MessagesLayout = ({ initialChats, session, children }: Props) => {
     refetchOnReconnect: false,
   });
 
-  const utils = api.useContext();
-
-  const initialized = useRef(false);
-  const { pusher } = useContext(PusherContext);
-
-  useEffect(() => {
-    if (!pusher) return;
-    if (!initialized.current) {
-      initialized.current = true;
-
-      const channel = pusher.subscribe("chat");
-
-      channel.bind("message", async () => {
-        console.log("message received");
-        await utils.messages.getChat.refetch({ username });
-        await utils.messages.getChats.refetch();
-        await utils.messages.unreadCount.refetch();
-      });
-    }
-
-    // return () => {
-    //   pusher.unsubscribe("chat");
-    // };
-  }, [
-    utils.messages.getChat,
-    utils.messages.getChats,
-    utils.messages.unreadCount,
-    username,
-    pusher,
-  ]);
+  const [showModal, setShowModal] = useState(false);
 
   return (
     <>
       {!isOnChat ? (
         <div className={`w-full pt-5 md:max-w-xs`}>
-          <h2 className="mb-2 text-2xl font-semibold">Messages</h2>
+          <Group justify="space-between">
+            <h2 className="mb-2 text-2xl font-semibold">Messages</h2>
+            <NewMessage showModal={showModal} setShowModal={setShowModal} />
+          </Group>
 
           <div className="flex flex-col items-start justify-start space-y-2">
-            {chats.data?.map((chat) => (
-              <ChatUser key={chat.id} chat={chat} session={session} />
-            ))}
+            {chats.data
+              ?.sort((a, b) => {
+                const dateA = new Date(a.updatedAt);
+                const dateB = new Date(b.updatedAt);
+
+                if (dateA < dateB) return 1;
+                if (dateA > dateB) return -1;
+                return 0;
+              })
+              .map((chat) => (
+                <ChatUser key={chat.id} chat={chat} session={session} />
+              ))}
           </div>
         </div>
       ) : (
         <div className={`hidden w-full py-5 md:block md:max-w-xs`}>
-          <h2 className="mb-2 text-2xl font-semibold">Messages</h2>
-
+          <Group justify="space-between">
+            <h2 className="mb-2 text-2xl font-semibold">Messages</h2>
+            <NewMessage showModal={showModal} setShowModal={setShowModal} />
+          </Group>
           <div className="flex flex-col items-start justify-start space-y-2">
-            {chats.data?.map((chat) => (
-              <ChatUser
-                key={chat.id}
-                chat={chat}
-                session={session}
-                selected={username}
-              />
-            ))}
+            {chats.data
+              ?.sort((a, b) => {
+                const dateA = new Date(a.updatedAt);
+                const dateB = new Date(b.updatedAt);
+
+                if (dateA < dateB) return 1;
+                if (dateA > dateB) return -1;
+                return 0;
+              })
+              .map((chat) => (
+                <ChatUser
+                  key={chat.id}
+                  chat={chat}
+                  session={session}
+                  selected={username}
+                />
+              ))}
           </div>
         </div>
       )}
