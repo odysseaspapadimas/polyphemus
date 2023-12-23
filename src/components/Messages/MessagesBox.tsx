@@ -2,13 +2,18 @@
 
 import { api } from "src/trpc/react";
 import Link from "next/link";
-import { IconArrowLeft } from "@tabler/icons-react";
+import {
+  IconArrowLeft,
+  IconDotsVertical,
+  IconTrash,
+} from "@tabler/icons-react";
 import Image from "next/image";
 import Messages from "./Messages";
 import type { Session } from "next-auth";
-import { Center, Loader, Skeleton } from "@mantine/core";
+import { ActionIcon, Center, Loader, Menu, Skeleton, rem } from "@mantine/core";
 import React, { useContext, useEffect } from "react";
 import { PusherContext } from "src/providers/PusherProvider";
+import { useRouter } from "next/navigation";
 const MessagesBox = ({
   username,
   session,
@@ -35,6 +40,15 @@ const MessagesBox = ({
       await utils.messages.getChats.refetch();
       await utils.messages.getChat.refetch({ username });
       await utils.messages.unreadCount.refetch();
+    },
+  });
+
+  const router = useRouter();
+
+  const deleteChat = api.messages.deleteChat.useMutation({
+    onSuccess: async () => {
+      await utils.messages.getChats.refetch();
+      router.push("/messages");
     },
   });
 
@@ -77,13 +91,44 @@ const MessagesBox = ({
         </div>
         <div className="flex-1"></div>
         <span className="absolute -left-4 top-16 w-screen border-b border-solid border-[rgb(44,46,51)]"></span>
+        <IconDotsVertical />
       </div>
 
       <div className="px-auto hidden w-full items-center justify-center space-x-2 pt-5 md:flex">
-        <UserImage image={user?.image} />
-        <Link href={`/user/${username}`}>
-          <h2 className="text-xl">{username}</h2>
-        </Link>
+        <div className="flex-1"></div>
+        <div className="flex flex-1 items-center justify-center space-x-2">
+          <UserImage image={user?.image} />
+          <Link href={`/user/${username}`}>
+            <h2 className="text-xl">{username}</h2>
+          </Link>
+        </div>
+        <div className="flex flex-1 ">
+          {chatQuery.data?.chat && (
+            <Menu withArrow position="bottom-end" arrowOffset={12}>
+              <Menu.Target>
+                <ActionIcon classNames={{ root: "!ml-auto" }}>
+                  <IconDotsVertical />
+                </ActionIcon>
+              </Menu.Target>
+
+              <Menu.Dropdown>
+                <Menu.Item
+                  color="red"
+                  leftSection={
+                    <IconTrash style={{ width: rem(14), height: rem(14) }} />
+                  }
+                  onClick={() => {
+                    if (chatQuery.data?.chat) {
+                      deleteChat.mutate({ chatId: chatQuery.data.chat.id });
+                    }
+                  }}
+                >
+                  Delete chat
+                </Menu.Item>
+              </Menu.Dropdown>
+            </Menu>
+          )}
+        </div>
       </div>
 
       {chatQuery.isLoading ? (

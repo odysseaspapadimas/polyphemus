@@ -270,4 +270,32 @@ export const messagesRouter = createTRPCRouter({
 
     return suggestedUsers;
   }),
+  deleteChat: protectedProcedure
+    .input(
+      z.object({
+        chatId: z.string(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const chat = await ctx.db.chat.findFirst({
+        where: {
+          id: input.chatId,
+          users: {
+            some: {
+              id: ctx.session.user.id,
+            },
+          },
+        },
+      });
+
+      if (!chat) {
+        throw new Error("Chat not found");
+      }
+
+      await ctx.db.chat.delete({
+        where: {
+          id: input.chatId,
+        },
+      });
+    }),
 });
