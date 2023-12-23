@@ -114,7 +114,6 @@ const User = ({
     onMutate: async ({ follow }) => {
       // console.log("mutate");
       // await utils.user.get.cancel();
-
       // if (sessionUser) {
       //   const optimisticSessionUser = {
       //     _count: {
