@@ -5,6 +5,9 @@ import { IconSend } from "@tabler/icons-react";
 import { useContext, useRef, useState } from "react";
 import { PusherContext } from "src/providers/PusherProvider";
 import { api } from "src/trpc/react";
+import SendMedia from "./SendMedia";
+import type { Message } from "prisma/generated/zod";
+import type { MovieResult, PersonResult, TvResult } from "moviedb-promise";
 
 type Props = {
   username: string;
@@ -20,7 +23,46 @@ const ChatInput = ({ username }: Props) => {
     e.preventDefault();
 
     setInput("");
-    sendMessage.mutate({ content: input, to: username, socketId });
+    handleSend();
+  };
+
+  const handleSend = (media?: MovieResult | TvResult | PersonResult) => {
+    if (media) {
+      let name, image, mediaType;
+      if (media.media_type === "movie") {
+        name = media.title;
+        image = media.poster_path;
+        mediaType = "MOVIE" as const;
+      } else if (media.media_type === "tv") {
+        name = media.name;
+        image = media.poster_path;
+        mediaType = "SHOW" as const;
+      } else {
+        name = media.name;
+        image = media.profile_path;
+        mediaType = "PERSON" as const;
+      }
+
+      sendMessage.mutate({
+        content: input,
+        to: username,
+        socketId,
+        mediaId: media.id!,
+        mediaName: name ?? "Unknown",
+        mediaType,
+        mediaImage: image ?? null,
+      });
+    } else {
+      sendMessage.mutate({
+        content: input,
+        to: username,
+        socketId,
+        mediaId: null,
+        mediaName: null,
+        mediaType: null,
+        mediaImage: null,
+      });
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -33,11 +75,18 @@ const ChatInput = ({ username }: Props) => {
   const utils = api.useContext();
 
   const sendMessage = api.messages.send.useMutation({
-    onMutate: async ({ content, to }) => {
+    onMutate: async ({
+      content,
+      to,
+      mediaId,
+      mediaName,
+      mediaType,
+      mediaImage,
+    }) => {
       await utils.messages.getChat.cancel();
       utils.messages.getChat.setData({ username }, (chatQuery) => {
         if (!chatQuery?.chat) return chatQuery;
-        const newMessage = {
+        const newMessage: Message = {
           id: crypto.randomUUID(),
           content,
           createdAt: new Date(),
@@ -45,6 +94,10 @@ const ChatInput = ({ username }: Props) => {
           read: false,
           readAt: null,
           updatedAt: new Date(),
+          mediaId,
+          mediaName,
+          mediaType,
+          mediaImage,
           //chat has 2 users, my user is the one that i'm not sending to
           senderUsername: chatQuery.chat.users.find(
             (user) => user.username !== to,
@@ -72,8 +125,7 @@ const ChatInput = ({ username }: Props) => {
       className="mx-auto mb-4 mt-auto flex w-[95%] items-center space-x-2 self-center"
     >
       {/* <SendMedia user={myUser?.username} otherUser={user?.username} /> */}
-      {/* <IconPlus />
-      <IconEyeOff /> */}
+      <SendMedia handleSend={handleSend} />
       <Textarea
         value={input}
         onChange={(e) => setInput(e.currentTarget.value)}

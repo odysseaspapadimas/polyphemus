@@ -61,15 +61,26 @@ model Message {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  content String
+  content String?
   read    Boolean   @default(false)
   readAt  DateTime?
+
+  mediaId    Int?
+  mediaType  MessageMediaType?
+  mediaName  String?
+  mediaImage String?
 
   senderUsername String
   sender         User   @relation(fields: [senderUsername], references: [username], onDelete: Cascade)
 
   chat   Chat   @relation(fields: [chatId], references: [id], onDelete: Cascade)
   chatId String
+}
+
+enum MessageMediaType {
+  SHOW
+  MOVIE
+  PERSON
 }
 
 model Chat {

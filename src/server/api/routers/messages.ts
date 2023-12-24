@@ -87,6 +87,10 @@ export const messagesRouter = createTRPCRouter({
         to: z.string(),
         content: z.string(),
         socketId: z.string().optional(),
+        mediaId: z.number().nullable(),
+        mediaType: z.enum(["MOVIE", "SHOW", "PERSON"]).nullable(),
+        mediaName: z.string().nullable(),
+        mediaImage: z.string().nullable(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -126,6 +130,10 @@ export const messagesRouter = createTRPCRouter({
             content: input.content,
             chatId: res.id,
             senderUsername: ctx.session.user.username!,
+            mediaId: input.mediaId,
+            mediaType: input.mediaType,
+            mediaName: input.mediaName,
+            mediaImage: input.mediaImage,
           },
         });
 
@@ -147,6 +155,10 @@ export const messagesRouter = createTRPCRouter({
           content: input.content,
           chatId: chat.id,
           senderUsername: ctx.session.user.username!,
+          mediaId: input.mediaId,
+          mediaType: input.mediaType,
+          mediaName: input.mediaName,
+          mediaImage: input.mediaImage,
         },
       });
 

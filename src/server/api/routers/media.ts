@@ -38,4 +38,15 @@ export const mediaRouter = createTRPCRouter({
         return genres;
       }
     }),
+  search: publicProcedure
+    .input(
+      z.object({
+        query: z.string(),
+      }),
+    )
+    .query(async ({ input }) => {
+      const { results } = await tmdb.searchMulti({ query: input.query });
+
+      return results?.slice(0, 5);
+    }),
 });
