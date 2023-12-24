@@ -1,7 +1,7 @@
 "use client";
 
 import type { Session } from "next-auth";
-import ChatInput from "./ChatInput";
+import ChatInput from "./Input/ChatInput";
 import MessagesBox from "./MessagesBox";
 
 type Props = {

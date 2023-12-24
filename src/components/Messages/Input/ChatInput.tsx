@@ -72,6 +72,8 @@ const ChatInput = ({ username }: Props) => {
       className="mx-auto mb-4 mt-auto flex w-[95%] items-center space-x-2 self-center"
     >
       {/* <SendMedia user={myUser?.username} otherUser={user?.username} /> */}
+      {/* <IconPlus />
+      <IconEyeOff /> */}
       <Textarea
         value={input}
         onChange={(e) => setInput(e.currentTarget.value)}
