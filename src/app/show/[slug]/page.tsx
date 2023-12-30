@@ -1,6 +1,6 @@
 import { IMG_URL, tmdb } from "src/lib/tmdb";
 
-import { Container, Text } from "@mantine/core";
+import { Container, Group, Spoiler, Text } from "@mantine/core";
 import type {
   AggregateCreditsResponse,
   Genre,
@@ -24,6 +24,7 @@ import Airs from "src/components/Show/Airs";
 import { getPlaiceholder } from "plaiceholder";
 import Credits from "src/components/Show/Credits";
 import { IconPhotoOff } from "@tabler/icons-react";
+import Episode from "src/components/Show/Episode";
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
@@ -75,6 +76,8 @@ const ShowPage = async ({ params }: Props) => {
     base64 = res.base64;
   }
 
+  console.log(show.first_air_date, show.last_air_date, "dates");
+
   return (
     <>
       <div className="relative">
@@ -109,14 +112,16 @@ const ShowPage = async ({ params }: Props) => {
           <div className="mt-4 flex flex-1 flex-col justify-center sm:ml-8 sm:mt-0 sm:max-w-2xl">
             <div className="flex">
               <p className="text-3xl font-semibold">
-                {show.name}{" "}
-                <span className="text-2xl">
-                  ({show.first_air_date?.split("-")[0]}-
-                  {show.status === "Ended" && show.last_air_date
-                    ? show.last_air_date.split("-")[0]
-                    : null}
-                  )
-                </span>
+                {show.name}
+                {show.first_air_date && (
+                  <span className="text-2xl">
+                    ({show.first_air_date.split("-")[0]}-
+                    {show.status === "Ended" && show.last_air_date
+                      ? show.last_air_date.split("-")[0]
+                      : null}
+                    )
+                  </span>
+                )}
               </p>
             </div>
 
@@ -244,6 +249,23 @@ const ShowPage = async ({ params }: Props) => {
         </Container>
       </div>
       <Container pb={16}>
+        <Group className="pt-4">
+          {show.next_episode_to_air && show.status !== "Ended" && (
+            <Episode
+              episode={show.next_episode_to_air}
+              backdrop={show.backdrop_path}
+              isNext={true}
+            />
+          )}
+          {show.last_episode_to_air && (
+            <Episode
+              episode={show.last_episode_to_air}
+              backdrop={show.backdrop_path}
+              isNext={false}
+            />
+          )}
+        </Group>
+
         <div className="flex w-full flex-col md:flex-row md:space-x-4 ">
           <Credits credits={show.aggregate_credits} />
 
@@ -266,9 +288,9 @@ const ShowPage = async ({ params }: Props) => {
             )}
 
             {show.networks && show.networks.length > 0 && (
-              <div>
+              <Spoiler maxHeight={134} showLabel="Show more" hideLabel="Hide">
                 <h3 className="font-semibold">Networks</h3>
-                <p className="flex flex-col space-y-2">
+                <p className="flex flex-col space-y-1">
                   {show.networks.map((network, i) => (
                     <span key={network.id}>
                       {network.name}
@@ -276,7 +298,7 @@ const ShowPage = async ({ params }: Props) => {
                     </span>
                   ))}
                 </p>
-              </div>
+              </Spoiler>
             )}
           </div>
         </div>
@@ -298,7 +320,7 @@ const ShowPage = async ({ params }: Props) => {
                       className="rounded-l-md"
                     />
                   ) : (
-                    <div className="bg-dark h-[225px] w-[150px]"></div>
+                    <div className="h-[225px] w-[150px] bg-dark"></div>
                   )}
                 </div>
               </Link>

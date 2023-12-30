@@ -63,7 +63,7 @@ const Media = async ({ data }: { data: MovieResult | TvResult }) => {
               blurDataURL={base64}
             />
           ) : (
-            <div className="grid w-full h-full place-items-center bg-slate-700">
+            <div className="grid h-full w-full place-items-center bg-slate-700">
               <IconPhotoOff />
             </div>
           )}
@@ -76,7 +76,7 @@ const Media = async ({ data }: { data: MovieResult | TvResult }) => {
         )}
       </div>
       <h2 className="whitespace-pre-wrap font-semibold">
-        {name} ({release_date})
+        {name} {release_date && `(${release_date})`}
       </h2>
     </div>
   );
