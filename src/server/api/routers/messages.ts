@@ -91,6 +91,11 @@ export const messagesRouter = createTRPCRouter({
         mediaType: z.enum(["MOVIE", "SHOW", "PERSON"]).nullable(),
         mediaName: z.string().nullable(),
         mediaImage: z.string().nullable(),
+        spoilerMedia: z.string().nullable(),
+        spoilerDescription: z.string().nullable(),
+        spoilerSeason: z.number().nullable(),
+        spoilerEpisode: z.number().nullable(),
+        spoilerRevealed: z.boolean().nullable(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -134,6 +139,10 @@ export const messagesRouter = createTRPCRouter({
             mediaType: input.mediaType,
             mediaName: input.mediaName,
             mediaImage: input.mediaImage,
+            spoilerMedia: input.spoilerMedia,
+            spoilerDescription: input.spoilerDescription,
+            spoilerSeason: input.spoilerSeason,
+            spoilerEpisode: input.spoilerEpisode,
           },
         });
 
@@ -159,6 +168,10 @@ export const messagesRouter = createTRPCRouter({
           mediaType: input.mediaType,
           mediaName: input.mediaName,
           mediaImage: input.mediaImage,
+          spoilerMedia: input.spoilerMedia,
+          spoilerDescription: input.spoilerDescription,
+          spoilerSeason: input.spoilerSeason,
+          spoilerEpisode: input.spoilerEpisode,
         },
       });
 
@@ -307,6 +320,32 @@ export const messagesRouter = createTRPCRouter({
       await ctx.db.chat.delete({
         where: {
           id: input.chatId,
+        },
+      });
+    }),
+  revealSpoiler: protectedProcedure
+    .input(
+      z.object({
+        messageId: z.string(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const message = await ctx.db.message.findFirst({
+        where: {
+          id: input.messageId,
+        },
+      });
+
+      if (!message) {
+        throw new Error("Message not found");
+      }
+
+      await ctx.db.message.update({
+        where: {
+          id: input.messageId,
+        },
+        data: {
+          spoilerRevealed: true,
         },
       });
     }),

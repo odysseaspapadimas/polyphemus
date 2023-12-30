@@ -49,4 +49,57 @@ export const mediaRouter = createTRPCRouter({
 
       return results?.slice(0, 5);
     }),
+  spoilerSearch: publicProcedure
+    .input(
+      z.object({
+        query: z.string(),
+        type: z.enum(["MOVIE", "SHOW"]).nullable(),
+      }),
+    )
+    .query(async ({ input }) => {
+      if (input.type === "MOVIE") {
+        const { results } = await tmdb.searchMovie({ query: input.query });
+
+        return results?.slice(0, 5);
+      } else if (input.type === "SHOW") {
+        const { results } = await tmdb.searchTv({ query: input.query });
+
+        return results?.slice(0, 5);
+      }
+    }),
+  details: publicProcedure
+    .input(
+      z.object({
+        id: z.number().nullish(),
+        type: z.enum(["MOVIE", "SHOW"]).nullish(),
+      }),
+    )
+    .query(async ({ input }) => {
+      if (!input.id) return null;
+      if (input.type === "MOVIE") {
+        const info = await tmdb.movieInfo({ id: input.id });
+
+        return info;
+      } else {
+        const info = await tmdb.tvInfo({ id: input.id });
+
+        return info;
+      }
+    }),
+  season: publicProcedure
+    .input(
+      z.object({
+        id: z.number().nullish(),
+        season: z.number().nullish(),
+      }),
+    )
+    .query(async ({ input }) => {
+      if (!input.id || !input.season) return null;
+      const info = await tmdb.seasonInfo({
+        id: input.id,
+        season_number: input.season,
+      });
+
+      return info;
+    }),
 });

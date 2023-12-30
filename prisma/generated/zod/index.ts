@@ -16,7 +16,7 @@ export const UserScalarFieldEnumSchema = z.enum(['id','name','email','emailVerif
 
 export const WatchlistEntryScalarFieldEnumSchema = z.enum(['id','createdAt','updatedAt','mediaId','mediaType','status','userId']);
 
-export const MessageScalarFieldEnumSchema = z.enum(['id','createdAt','updatedAt','content','read','readAt','mediaId','mediaType','mediaName','mediaImage','senderUsername','chatId']);
+export const MessageScalarFieldEnumSchema = z.enum(['id','createdAt','updatedAt','content','read','readAt','mediaId','mediaType','mediaName','mediaImage','spoilerMedia','spoilerDescription','spoilerSeason','spoilerEpisode','spoilerRevealed','senderUsername','chatId']);
 
 export const ChatScalarFieldEnumSchema = z.enum(['id','createdAt','updatedAt']);
 
@@ -94,6 +94,11 @@ export const MessageSchema = z.object({
   mediaId: z.number().int().nullable(),
   mediaName: z.string().nullable(),
   mediaImage: z.string().nullable(),
+  spoilerMedia: z.string().nullable(),
+  spoilerDescription: z.string().nullable(),
+  spoilerSeason: z.number().int().nullable(),
+  spoilerEpisode: z.number().int().nullable(),
+  spoilerRevealed: z.boolean().nullable(),
   senderUsername: z.string(),
   chatId: z.string(),
 })
@@ -259,6 +264,11 @@ export const MessageSelectSchema: z.ZodType<Prisma.MessageSelect> = z.object({
   mediaType: z.boolean().optional(),
   mediaName: z.boolean().optional(),
   mediaImage: z.boolean().optional(),
+  spoilerMedia: z.boolean().optional(),
+  spoilerDescription: z.boolean().optional(),
+  spoilerSeason: z.boolean().optional(),
+  spoilerEpisode: z.boolean().optional(),
+  spoilerRevealed: z.boolean().optional(),
   senderUsername: z.boolean().optional(),
   chatId: z.boolean().optional(),
   sender: z.union([z.boolean(),z.lazy(() => UserArgsSchema)]).optional(),
@@ -559,6 +569,11 @@ export const MessageWhereInputSchema: z.ZodType<Prisma.MessageWhereInput> = z.ob
   mediaType: z.union([ z.lazy(() => EnumMessageMediaTypeNullableFilterSchema),z.lazy(() => MessageMediaTypeSchema) ]).optional().nullable(),
   mediaName: z.union([ z.lazy(() => StringNullableFilterSchema),z.string() ]).optional().nullable(),
   mediaImage: z.union([ z.lazy(() => StringNullableFilterSchema),z.string() ]).optional().nullable(),
+  spoilerMedia: z.union([ z.lazy(() => StringNullableFilterSchema),z.string() ]).optional().nullable(),
+  spoilerDescription: z.union([ z.lazy(() => StringNullableFilterSchema),z.string() ]).optional().nullable(),
+  spoilerSeason: z.union([ z.lazy(() => IntNullableFilterSchema),z.number() ]).optional().nullable(),
+  spoilerEpisode: z.union([ z.lazy(() => IntNullableFilterSchema),z.number() ]).optional().nullable(),
+  spoilerRevealed: z.union([ z.lazy(() => BoolNullableFilterSchema),z.boolean() ]).optional().nullable(),
   senderUsername: z.union([ z.lazy(() => StringFilterSchema),z.string() ]).optional(),
   chatId: z.union([ z.lazy(() => StringFilterSchema),z.string() ]).optional(),
   sender: z.union([ z.lazy(() => UserRelationFilterSchema),z.lazy(() => UserWhereInputSchema) ]).optional(),
@@ -576,6 +591,11 @@ export const MessageOrderByWithRelationInputSchema: z.ZodType<Prisma.MessageOrde
   mediaType: z.union([ z.lazy(() => SortOrderSchema),z.lazy(() => SortOrderInputSchema) ]).optional(),
   mediaName: z.union([ z.lazy(() => SortOrderSchema),z.lazy(() => SortOrderInputSchema) ]).optional(),
   mediaImage: z.union([ z.lazy(() => SortOrderSchema),z.lazy(() => SortOrderInputSchema) ]).optional(),
+  spoilerMedia: z.union([ z.lazy(() => SortOrderSchema),z.lazy(() => SortOrderInputSchema) ]).optional(),
+  spoilerDescription: z.union([ z.lazy(() => SortOrderSchema),z.lazy(() => SortOrderInputSchema) ]).optional(),
+  spoilerSeason: z.union([ z.lazy(() => SortOrderSchema),z.lazy(() => SortOrderInputSchema) ]).optional(),
+  spoilerEpisode: z.union([ z.lazy(() => SortOrderSchema),z.lazy(() => SortOrderInputSchema) ]).optional(),
+  spoilerRevealed: z.union([ z.lazy(() => SortOrderSchema),z.lazy(() => SortOrderInputSchema) ]).optional(),
   senderUsername: z.lazy(() => SortOrderSchema).optional(),
   chatId: z.lazy(() => SortOrderSchema).optional(),
   sender: z.lazy(() => UserOrderByWithRelationInputSchema).optional(),
@@ -599,6 +619,11 @@ export const MessageWhereUniqueInputSchema: z.ZodType<Prisma.MessageWhereUniqueI
   mediaType: z.union([ z.lazy(() => EnumMessageMediaTypeNullableFilterSchema),z.lazy(() => MessageMediaTypeSchema) ]).optional().nullable(),
   mediaName: z.union([ z.lazy(() => StringNullableFilterSchema),z.string() ]).optional().nullable(),
   mediaImage: z.union([ z.lazy(() => StringNullableFilterSchema),z.string() ]).optional().nullable(),
+  spoilerMedia: z.union([ z.lazy(() => StringNullableFilterSchema),z.string() ]).optional().nullable(),
+  spoilerDescription: z.union([ z.lazy(() => StringNullableFilterSchema),z.string() ]).optional().nullable(),
+  spoilerSeason: z.union([ z.lazy(() => IntNullableFilterSchema),z.number().int() ]).optional().nullable(),
+  spoilerEpisode: z.union([ z.lazy(() => IntNullableFilterSchema),z.number().int() ]).optional().nullable(),
+  spoilerRevealed: z.union([ z.lazy(() => BoolNullableFilterSchema),z.boolean() ]).optional().nullable(),
   senderUsername: z.union([ z.lazy(() => StringFilterSchema),z.string() ]).optional(),
   chatId: z.union([ z.lazy(() => StringFilterSchema),z.string() ]).optional(),
   sender: z.union([ z.lazy(() => UserRelationFilterSchema),z.lazy(() => UserWhereInputSchema) ]).optional(),
@@ -616,6 +641,11 @@ export const MessageOrderByWithAggregationInputSchema: z.ZodType<Prisma.MessageO
   mediaType: z.union([ z.lazy(() => SortOrderSchema),z.lazy(() => SortOrderInputSchema) ]).optional(),
   mediaName: z.union([ z.lazy(() => SortOrderSchema),z.lazy(() => SortOrderInputSchema) ]).optional(),
   mediaImage: z.union([ z.lazy(() => SortOrderSchema),z.lazy(() => SortOrderInputSchema) ]).optional(),
+  spoilerMedia: z.union([ z.lazy(() => SortOrderSchema),z.lazy(() => SortOrderInputSchema) ]).optional(),
+  spoilerDescription: z.union([ z.lazy(() => SortOrderSchema),z.lazy(() => SortOrderInputSchema) ]).optional(),
+  spoilerSeason: z.union([ z.lazy(() => SortOrderSchema),z.lazy(() => SortOrderInputSchema) ]).optional(),
+  spoilerEpisode: z.union([ z.lazy(() => SortOrderSchema),z.lazy(() => SortOrderInputSchema) ]).optional(),
+  spoilerRevealed: z.union([ z.lazy(() => SortOrderSchema),z.lazy(() => SortOrderInputSchema) ]).optional(),
   senderUsername: z.lazy(() => SortOrderSchema).optional(),
   chatId: z.lazy(() => SortOrderSchema).optional(),
   _count: z.lazy(() => MessageCountOrderByAggregateInputSchema).optional(),
@@ -639,6 +669,11 @@ export const MessageScalarWhereWithAggregatesInputSchema: z.ZodType<Prisma.Messa
   mediaType: z.union([ z.lazy(() => EnumMessageMediaTypeNullableWithAggregatesFilterSchema),z.lazy(() => MessageMediaTypeSchema) ]).optional().nullable(),
   mediaName: z.union([ z.lazy(() => StringNullableWithAggregatesFilterSchema),z.string() ]).optional().nullable(),
   mediaImage: z.union([ z.lazy(() => StringNullableWithAggregatesFilterSchema),z.string() ]).optional().nullable(),
+  spoilerMedia: z.union([ z.lazy(() => StringNullableWithAggregatesFilterSchema),z.string() ]).optional().nullable(),
+  spoilerDescription: z.union([ z.lazy(() => StringNullableWithAggregatesFilterSchema),z.string() ]).optional().nullable(),
+  spoilerSeason: z.union([ z.lazy(() => IntNullableWithAggregatesFilterSchema),z.number() ]).optional().nullable(),
+  spoilerEpisode: z.union([ z.lazy(() => IntNullableWithAggregatesFilterSchema),z.number() ]).optional().nullable(),
+  spoilerRevealed: z.union([ z.lazy(() => BoolNullableWithAggregatesFilterSchema),z.boolean() ]).optional().nullable(),
   senderUsername: z.union([ z.lazy(() => StringWithAggregatesFilterSchema),z.string() ]).optional(),
   chatId: z.union([ z.lazy(() => StringWithAggregatesFilterSchema),z.string() ]).optional(),
 }).strict();
@@ -1087,6 +1122,11 @@ export const MessageCreateInputSchema: z.ZodType<Prisma.MessageCreateInput> = z.
   mediaType: z.lazy(() => MessageMediaTypeSchema).optional().nullable(),
   mediaName: z.string().optional().nullable(),
   mediaImage: z.string().optional().nullable(),
+  spoilerMedia: z.string().optional().nullable(),
+  spoilerDescription: z.string().optional().nullable(),
+  spoilerSeason: z.number().int().optional().nullable(),
+  spoilerEpisode: z.number().int().optional().nullable(),
+  spoilerRevealed: z.boolean().optional().nullable(),
   sender: z.lazy(() => UserCreateNestedOneWithoutMessagesInputSchema),
   chat: z.lazy(() => ChatCreateNestedOneWithoutMessagesInputSchema)
 }).strict();
@@ -1102,6 +1142,11 @@ export const MessageUncheckedCreateInputSchema: z.ZodType<Prisma.MessageUnchecke
   mediaType: z.lazy(() => MessageMediaTypeSchema).optional().nullable(),
   mediaName: z.string().optional().nullable(),
   mediaImage: z.string().optional().nullable(),
+  spoilerMedia: z.string().optional().nullable(),
+  spoilerDescription: z.string().optional().nullable(),
+  spoilerSeason: z.number().int().optional().nullable(),
+  spoilerEpisode: z.number().int().optional().nullable(),
+  spoilerRevealed: z.boolean().optional().nullable(),
   senderUsername: z.string(),
   chatId: z.string()
 }).strict();
@@ -1117,6 +1162,11 @@ export const MessageUpdateInputSchema: z.ZodType<Prisma.MessageUpdateInput> = z.
   mediaType: z.union([ z.lazy(() => MessageMediaTypeSchema),z.lazy(() => NullableEnumMessageMediaTypeFieldUpdateOperationsInputSchema) ]).optional().nullable(),
   mediaName: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
   mediaImage: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  spoilerMedia: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  spoilerDescription: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  spoilerSeason: z.union([ z.number().int(),z.lazy(() => NullableIntFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  spoilerEpisode: z.union([ z.number().int(),z.lazy(() => NullableIntFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  spoilerRevealed: z.union([ z.boolean(),z.lazy(() => NullableBoolFieldUpdateOperationsInputSchema) ]).optional().nullable(),
   sender: z.lazy(() => UserUpdateOneRequiredWithoutMessagesNestedInputSchema).optional(),
   chat: z.lazy(() => ChatUpdateOneRequiredWithoutMessagesNestedInputSchema).optional()
 }).strict();
@@ -1132,6 +1182,11 @@ export const MessageUncheckedUpdateInputSchema: z.ZodType<Prisma.MessageUnchecke
   mediaType: z.union([ z.lazy(() => MessageMediaTypeSchema),z.lazy(() => NullableEnumMessageMediaTypeFieldUpdateOperationsInputSchema) ]).optional().nullable(),
   mediaName: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
   mediaImage: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  spoilerMedia: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  spoilerDescription: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  spoilerSeason: z.union([ z.number().int(),z.lazy(() => NullableIntFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  spoilerEpisode: z.union([ z.number().int(),z.lazy(() => NullableIntFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  spoilerRevealed: z.union([ z.boolean(),z.lazy(() => NullableBoolFieldUpdateOperationsInputSchema) ]).optional().nullable(),
   senderUsername: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   chatId: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
 }).strict();
@@ -1147,6 +1202,11 @@ export const MessageCreateManyInputSchema: z.ZodType<Prisma.MessageCreateManyInp
   mediaType: z.lazy(() => MessageMediaTypeSchema).optional().nullable(),
   mediaName: z.string().optional().nullable(),
   mediaImage: z.string().optional().nullable(),
+  spoilerMedia: z.string().optional().nullable(),
+  spoilerDescription: z.string().optional().nullable(),
+  spoilerSeason: z.number().int().optional().nullable(),
+  spoilerEpisode: z.number().int().optional().nullable(),
+  spoilerRevealed: z.boolean().optional().nullable(),
   senderUsername: z.string(),
   chatId: z.string()
 }).strict();
@@ -1162,6 +1222,11 @@ export const MessageUpdateManyMutationInputSchema: z.ZodType<Prisma.MessageUpdat
   mediaType: z.union([ z.lazy(() => MessageMediaTypeSchema),z.lazy(() => NullableEnumMessageMediaTypeFieldUpdateOperationsInputSchema) ]).optional().nullable(),
   mediaName: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
   mediaImage: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  spoilerMedia: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  spoilerDescription: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  spoilerSeason: z.union([ z.number().int(),z.lazy(() => NullableIntFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  spoilerEpisode: z.union([ z.number().int(),z.lazy(() => NullableIntFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  spoilerRevealed: z.union([ z.boolean(),z.lazy(() => NullableBoolFieldUpdateOperationsInputSchema) ]).optional().nullable(),
 }).strict();
 
 export const MessageUncheckedUpdateManyInputSchema: z.ZodType<Prisma.MessageUncheckedUpdateManyInput> = z.object({
@@ -1175,6 +1240,11 @@ export const MessageUncheckedUpdateManyInputSchema: z.ZodType<Prisma.MessageUnch
   mediaType: z.union([ z.lazy(() => MessageMediaTypeSchema),z.lazy(() => NullableEnumMessageMediaTypeFieldUpdateOperationsInputSchema) ]).optional().nullable(),
   mediaName: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
   mediaImage: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  spoilerMedia: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  spoilerDescription: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  spoilerSeason: z.union([ z.number().int(),z.lazy(() => NullableIntFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  spoilerEpisode: z.union([ z.number().int(),z.lazy(() => NullableIntFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  spoilerRevealed: z.union([ z.boolean(),z.lazy(() => NullableBoolFieldUpdateOperationsInputSchema) ]).optional().nullable(),
   senderUsername: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   chatId: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
 }).strict();
@@ -1764,6 +1834,11 @@ export const EnumMessageMediaTypeNullableFilterSchema: z.ZodType<Prisma.EnumMess
   not: z.union([ z.lazy(() => MessageMediaTypeSchema),z.lazy(() => NestedEnumMessageMediaTypeNullableFilterSchema) ]).optional().nullable(),
 }).strict();
 
+export const BoolNullableFilterSchema: z.ZodType<Prisma.BoolNullableFilter> = z.object({
+  equals: z.boolean().optional().nullable(),
+  not: z.union([ z.boolean(),z.lazy(() => NestedBoolNullableFilterSchema) ]).optional().nullable(),
+}).strict();
+
 export const ChatRelationFilterSchema: z.ZodType<Prisma.ChatRelationFilter> = z.object({
   is: z.lazy(() => ChatWhereInputSchema).optional(),
   isNot: z.lazy(() => ChatWhereInputSchema).optional()
@@ -1780,12 +1855,19 @@ export const MessageCountOrderByAggregateInputSchema: z.ZodType<Prisma.MessageCo
   mediaType: z.lazy(() => SortOrderSchema).optional(),
   mediaName: z.lazy(() => SortOrderSchema).optional(),
   mediaImage: z.lazy(() => SortOrderSchema).optional(),
+  spoilerMedia: z.lazy(() => SortOrderSchema).optional(),
+  spoilerDescription: z.lazy(() => SortOrderSchema).optional(),
+  spoilerSeason: z.lazy(() => SortOrderSchema).optional(),
+  spoilerEpisode: z.lazy(() => SortOrderSchema).optional(),
+  spoilerRevealed: z.lazy(() => SortOrderSchema).optional(),
   senderUsername: z.lazy(() => SortOrderSchema).optional(),
   chatId: z.lazy(() => SortOrderSchema).optional()
 }).strict();
 
 export const MessageAvgOrderByAggregateInputSchema: z.ZodType<Prisma.MessageAvgOrderByAggregateInput> = z.object({
-  mediaId: z.lazy(() => SortOrderSchema).optional()
+  mediaId: z.lazy(() => SortOrderSchema).optional(),
+  spoilerSeason: z.lazy(() => SortOrderSchema).optional(),
+  spoilerEpisode: z.lazy(() => SortOrderSchema).optional()
 }).strict();
 
 export const MessageMaxOrderByAggregateInputSchema: z.ZodType<Prisma.MessageMaxOrderByAggregateInput> = z.object({
@@ -1799,6 +1881,11 @@ export const MessageMaxOrderByAggregateInputSchema: z.ZodType<Prisma.MessageMaxO
   mediaType: z.lazy(() => SortOrderSchema).optional(),
   mediaName: z.lazy(() => SortOrderSchema).optional(),
   mediaImage: z.lazy(() => SortOrderSchema).optional(),
+  spoilerMedia: z.lazy(() => SortOrderSchema).optional(),
+  spoilerDescription: z.lazy(() => SortOrderSchema).optional(),
+  spoilerSeason: z.lazy(() => SortOrderSchema).optional(),
+  spoilerEpisode: z.lazy(() => SortOrderSchema).optional(),
+  spoilerRevealed: z.lazy(() => SortOrderSchema).optional(),
   senderUsername: z.lazy(() => SortOrderSchema).optional(),
   chatId: z.lazy(() => SortOrderSchema).optional()
 }).strict();
@@ -1814,12 +1901,19 @@ export const MessageMinOrderByAggregateInputSchema: z.ZodType<Prisma.MessageMinO
   mediaType: z.lazy(() => SortOrderSchema).optional(),
   mediaName: z.lazy(() => SortOrderSchema).optional(),
   mediaImage: z.lazy(() => SortOrderSchema).optional(),
+  spoilerMedia: z.lazy(() => SortOrderSchema).optional(),
+  spoilerDescription: z.lazy(() => SortOrderSchema).optional(),
+  spoilerSeason: z.lazy(() => SortOrderSchema).optional(),
+  spoilerEpisode: z.lazy(() => SortOrderSchema).optional(),
+  spoilerRevealed: z.lazy(() => SortOrderSchema).optional(),
   senderUsername: z.lazy(() => SortOrderSchema).optional(),
   chatId: z.lazy(() => SortOrderSchema).optional()
 }).strict();
 
 export const MessageSumOrderByAggregateInputSchema: z.ZodType<Prisma.MessageSumOrderByAggregateInput> = z.object({
-  mediaId: z.lazy(() => SortOrderSchema).optional()
+  mediaId: z.lazy(() => SortOrderSchema).optional(),
+  spoilerSeason: z.lazy(() => SortOrderSchema).optional(),
+  spoilerEpisode: z.lazy(() => SortOrderSchema).optional()
 }).strict();
 
 export const BoolWithAggregatesFilterSchema: z.ZodType<Prisma.BoolWithAggregatesFilter> = z.object({
@@ -1854,6 +1948,14 @@ export const EnumMessageMediaTypeNullableWithAggregatesFilterSchema: z.ZodType<P
   _count: z.lazy(() => NestedIntNullableFilterSchema).optional(),
   _min: z.lazy(() => NestedEnumMessageMediaTypeNullableFilterSchema).optional(),
   _max: z.lazy(() => NestedEnumMessageMediaTypeNullableFilterSchema).optional()
+}).strict();
+
+export const BoolNullableWithAggregatesFilterSchema: z.ZodType<Prisma.BoolNullableWithAggregatesFilter> = z.object({
+  equals: z.boolean().optional().nullable(),
+  not: z.union([ z.boolean(),z.lazy(() => NestedBoolNullableWithAggregatesFilterSchema) ]).optional().nullable(),
+  _count: z.lazy(() => NestedIntNullableFilterSchema).optional(),
+  _min: z.lazy(() => NestedBoolNullableFilterSchema).optional(),
+  _max: z.lazy(() => NestedBoolNullableFilterSchema).optional()
 }).strict();
 
 export const ChatCountOrderByAggregateInputSchema: z.ZodType<Prisma.ChatCountOrderByAggregateInput> = z.object({
@@ -2332,6 +2434,10 @@ export const NullableEnumMessageMediaTypeFieldUpdateOperationsInputSchema: z.Zod
   set: z.lazy(() => MessageMediaTypeSchema).optional().nullable()
 }).strict();
 
+export const NullableBoolFieldUpdateOperationsInputSchema: z.ZodType<Prisma.NullableBoolFieldUpdateOperationsInput> = z.object({
+  set: z.boolean().optional().nullable()
+}).strict();
+
 export const UserUpdateOneRequiredWithoutMessagesNestedInputSchema: z.ZodType<Prisma.UserUpdateOneRequiredWithoutMessagesNestedInput> = z.object({
   create: z.union([ z.lazy(() => UserCreateWithoutMessagesInputSchema),z.lazy(() => UserUncheckedCreateWithoutMessagesInputSchema) ]).optional(),
   connectOrCreate: z.lazy(() => UserCreateOrConnectWithoutMessagesInputSchema).optional(),
@@ -2663,6 +2769,11 @@ export const NestedEnumMessageMediaTypeNullableFilterSchema: z.ZodType<Prisma.Ne
   not: z.union([ z.lazy(() => MessageMediaTypeSchema),z.lazy(() => NestedEnumMessageMediaTypeNullableFilterSchema) ]).optional().nullable(),
 }).strict();
 
+export const NestedBoolNullableFilterSchema: z.ZodType<Prisma.NestedBoolNullableFilter> = z.object({
+  equals: z.boolean().optional().nullable(),
+  not: z.union([ z.boolean(),z.lazy(() => NestedBoolNullableFilterSchema) ]).optional().nullable(),
+}).strict();
+
 export const NestedBoolWithAggregatesFilterSchema: z.ZodType<Prisma.NestedBoolWithAggregatesFilter> = z.object({
   equals: z.boolean().optional(),
   not: z.union([ z.boolean(),z.lazy(() => NestedBoolWithAggregatesFilterSchema) ]).optional(),
@@ -2706,6 +2817,14 @@ export const NestedEnumMessageMediaTypeNullableWithAggregatesFilterSchema: z.Zod
   _count: z.lazy(() => NestedIntNullableFilterSchema).optional(),
   _min: z.lazy(() => NestedEnumMessageMediaTypeNullableFilterSchema).optional(),
   _max: z.lazy(() => NestedEnumMessageMediaTypeNullableFilterSchema).optional()
+}).strict();
+
+export const NestedBoolNullableWithAggregatesFilterSchema: z.ZodType<Prisma.NestedBoolNullableWithAggregatesFilter> = z.object({
+  equals: z.boolean().optional().nullable(),
+  not: z.union([ z.boolean(),z.lazy(() => NestedBoolNullableWithAggregatesFilterSchema) ]).optional().nullable(),
+  _count: z.lazy(() => NestedIntNullableFilterSchema).optional(),
+  _min: z.lazy(() => NestedBoolNullableFilterSchema).optional(),
+  _max: z.lazy(() => NestedBoolNullableFilterSchema).optional()
 }).strict();
 
 export const AccountCreateWithoutUserInputSchema: z.ZodType<Prisma.AccountCreateWithoutUserInput> = z.object({
@@ -2896,6 +3015,11 @@ export const MessageCreateWithoutSenderInputSchema: z.ZodType<Prisma.MessageCrea
   mediaType: z.lazy(() => MessageMediaTypeSchema).optional().nullable(),
   mediaName: z.string().optional().nullable(),
   mediaImage: z.string().optional().nullable(),
+  spoilerMedia: z.string().optional().nullable(),
+  spoilerDescription: z.string().optional().nullable(),
+  spoilerSeason: z.number().int().optional().nullable(),
+  spoilerEpisode: z.number().int().optional().nullable(),
+  spoilerRevealed: z.boolean().optional().nullable(),
   chat: z.lazy(() => ChatCreateNestedOneWithoutMessagesInputSchema)
 }).strict();
 
@@ -2910,6 +3034,11 @@ export const MessageUncheckedCreateWithoutSenderInputSchema: z.ZodType<Prisma.Me
   mediaType: z.lazy(() => MessageMediaTypeSchema).optional().nullable(),
   mediaName: z.string().optional().nullable(),
   mediaImage: z.string().optional().nullable(),
+  spoilerMedia: z.string().optional().nullable(),
+  spoilerDescription: z.string().optional().nullable(),
+  spoilerSeason: z.number().int().optional().nullable(),
+  spoilerEpisode: z.number().int().optional().nullable(),
+  spoilerRevealed: z.boolean().optional().nullable(),
   chatId: z.string()
 }).strict();
 
@@ -3111,6 +3240,11 @@ export const MessageScalarWhereInputSchema: z.ZodType<Prisma.MessageScalarWhereI
   mediaType: z.union([ z.lazy(() => EnumMessageMediaTypeNullableFilterSchema),z.lazy(() => MessageMediaTypeSchema) ]).optional().nullable(),
   mediaName: z.union([ z.lazy(() => StringNullableFilterSchema),z.string() ]).optional().nullable(),
   mediaImage: z.union([ z.lazy(() => StringNullableFilterSchema),z.string() ]).optional().nullable(),
+  spoilerMedia: z.union([ z.lazy(() => StringNullableFilterSchema),z.string() ]).optional().nullable(),
+  spoilerDescription: z.union([ z.lazy(() => StringNullableFilterSchema),z.string() ]).optional().nullable(),
+  spoilerSeason: z.union([ z.lazy(() => IntNullableFilterSchema),z.number() ]).optional().nullable(),
+  spoilerEpisode: z.union([ z.lazy(() => IntNullableFilterSchema),z.number() ]).optional().nullable(),
+  spoilerRevealed: z.union([ z.lazy(() => BoolNullableFilterSchema),z.boolean() ]).optional().nullable(),
   senderUsername: z.union([ z.lazy(() => StringFilterSchema),z.string() ]).optional(),
   chatId: z.union([ z.lazy(() => StringFilterSchema),z.string() ]).optional(),
 }).strict();
@@ -3322,6 +3456,11 @@ export const MessageCreateWithoutChatInputSchema: z.ZodType<Prisma.MessageCreate
   mediaType: z.lazy(() => MessageMediaTypeSchema).optional().nullable(),
   mediaName: z.string().optional().nullable(),
   mediaImage: z.string().optional().nullable(),
+  spoilerMedia: z.string().optional().nullable(),
+  spoilerDescription: z.string().optional().nullable(),
+  spoilerSeason: z.number().int().optional().nullable(),
+  spoilerEpisode: z.number().int().optional().nullable(),
+  spoilerRevealed: z.boolean().optional().nullable(),
   sender: z.lazy(() => UserCreateNestedOneWithoutMessagesInputSchema)
 }).strict();
 
@@ -3336,6 +3475,11 @@ export const MessageUncheckedCreateWithoutChatInputSchema: z.ZodType<Prisma.Mess
   mediaType: z.lazy(() => MessageMediaTypeSchema).optional().nullable(),
   mediaName: z.string().optional().nullable(),
   mediaImage: z.string().optional().nullable(),
+  spoilerMedia: z.string().optional().nullable(),
+  spoilerDescription: z.string().optional().nullable(),
+  spoilerSeason: z.number().int().optional().nullable(),
+  spoilerEpisode: z.number().int().optional().nullable(),
+  spoilerRevealed: z.boolean().optional().nullable(),
   senderUsername: z.string()
 }).strict();
 
@@ -3608,6 +3752,11 @@ export const MessageCreateManySenderInputSchema: z.ZodType<Prisma.MessageCreateM
   mediaType: z.lazy(() => MessageMediaTypeSchema).optional().nullable(),
   mediaName: z.string().optional().nullable(),
   mediaImage: z.string().optional().nullable(),
+  spoilerMedia: z.string().optional().nullable(),
+  spoilerDescription: z.string().optional().nullable(),
+  spoilerSeason: z.number().int().optional().nullable(),
+  spoilerEpisode: z.number().int().optional().nullable(),
+  spoilerRevealed: z.boolean().optional().nullable(),
   chatId: z.string()
 }).strict();
 
@@ -3807,6 +3956,11 @@ export const MessageUpdateWithoutSenderInputSchema: z.ZodType<Prisma.MessageUpda
   mediaType: z.union([ z.lazy(() => MessageMediaTypeSchema),z.lazy(() => NullableEnumMessageMediaTypeFieldUpdateOperationsInputSchema) ]).optional().nullable(),
   mediaName: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
   mediaImage: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  spoilerMedia: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  spoilerDescription: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  spoilerSeason: z.union([ z.number().int(),z.lazy(() => NullableIntFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  spoilerEpisode: z.union([ z.number().int(),z.lazy(() => NullableIntFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  spoilerRevealed: z.union([ z.boolean(),z.lazy(() => NullableBoolFieldUpdateOperationsInputSchema) ]).optional().nullable(),
   chat: z.lazy(() => ChatUpdateOneRequiredWithoutMessagesNestedInputSchema).optional()
 }).strict();
 
@@ -3821,6 +3975,11 @@ export const MessageUncheckedUpdateWithoutSenderInputSchema: z.ZodType<Prisma.Me
   mediaType: z.union([ z.lazy(() => MessageMediaTypeSchema),z.lazy(() => NullableEnumMessageMediaTypeFieldUpdateOperationsInputSchema) ]).optional().nullable(),
   mediaName: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
   mediaImage: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  spoilerMedia: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  spoilerDescription: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  spoilerSeason: z.union([ z.number().int(),z.lazy(() => NullableIntFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  spoilerEpisode: z.union([ z.number().int(),z.lazy(() => NullableIntFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  spoilerRevealed: z.union([ z.boolean(),z.lazy(() => NullableBoolFieldUpdateOperationsInputSchema) ]).optional().nullable(),
   chatId: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
 }).strict();
 
@@ -3835,6 +3994,11 @@ export const MessageUncheckedUpdateManyWithoutSenderInputSchema: z.ZodType<Prism
   mediaType: z.union([ z.lazy(() => MessageMediaTypeSchema),z.lazy(() => NullableEnumMessageMediaTypeFieldUpdateOperationsInputSchema) ]).optional().nullable(),
   mediaName: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
   mediaImage: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  spoilerMedia: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  spoilerDescription: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  spoilerSeason: z.union([ z.number().int(),z.lazy(() => NullableIntFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  spoilerEpisode: z.union([ z.number().int(),z.lazy(() => NullableIntFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  spoilerRevealed: z.union([ z.boolean(),z.lazy(() => NullableBoolFieldUpdateOperationsInputSchema) ]).optional().nullable(),
   chatId: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
 }).strict();
 
@@ -3849,6 +4013,11 @@ export const MessageCreateManyChatInputSchema: z.ZodType<Prisma.MessageCreateMan
   mediaType: z.lazy(() => MessageMediaTypeSchema).optional().nullable(),
   mediaName: z.string().optional().nullable(),
   mediaImage: z.string().optional().nullable(),
+  spoilerMedia: z.string().optional().nullable(),
+  spoilerDescription: z.string().optional().nullable(),
+  spoilerSeason: z.number().int().optional().nullable(),
+  spoilerEpisode: z.number().int().optional().nullable(),
+  spoilerRevealed: z.boolean().optional().nullable(),
   senderUsername: z.string()
 }).strict();
 
@@ -3863,6 +4032,11 @@ export const MessageUpdateWithoutChatInputSchema: z.ZodType<Prisma.MessageUpdate
   mediaType: z.union([ z.lazy(() => MessageMediaTypeSchema),z.lazy(() => NullableEnumMessageMediaTypeFieldUpdateOperationsInputSchema) ]).optional().nullable(),
   mediaName: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
   mediaImage: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  spoilerMedia: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  spoilerDescription: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  spoilerSeason: z.union([ z.number().int(),z.lazy(() => NullableIntFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  spoilerEpisode: z.union([ z.number().int(),z.lazy(() => NullableIntFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  spoilerRevealed: z.union([ z.boolean(),z.lazy(() => NullableBoolFieldUpdateOperationsInputSchema) ]).optional().nullable(),
   sender: z.lazy(() => UserUpdateOneRequiredWithoutMessagesNestedInputSchema).optional()
 }).strict();
 
@@ -3877,6 +4051,11 @@ export const MessageUncheckedUpdateWithoutChatInputSchema: z.ZodType<Prisma.Mess
   mediaType: z.union([ z.lazy(() => MessageMediaTypeSchema),z.lazy(() => NullableEnumMessageMediaTypeFieldUpdateOperationsInputSchema) ]).optional().nullable(),
   mediaName: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
   mediaImage: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  spoilerMedia: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  spoilerDescription: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  spoilerSeason: z.union([ z.number().int(),z.lazy(() => NullableIntFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  spoilerEpisode: z.union([ z.number().int(),z.lazy(() => NullableIntFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  spoilerRevealed: z.union([ z.boolean(),z.lazy(() => NullableBoolFieldUpdateOperationsInputSchema) ]).optional().nullable(),
   senderUsername: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
 }).strict();
 
@@ -3891,6 +4070,11 @@ export const MessageUncheckedUpdateManyWithoutChatInputSchema: z.ZodType<Prisma.
   mediaType: z.union([ z.lazy(() => MessageMediaTypeSchema),z.lazy(() => NullableEnumMessageMediaTypeFieldUpdateOperationsInputSchema) ]).optional().nullable(),
   mediaName: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
   mediaImage: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  spoilerMedia: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  spoilerDescription: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  spoilerSeason: z.union([ z.number().int(),z.lazy(() => NullableIntFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  spoilerEpisode: z.union([ z.number().int(),z.lazy(() => NullableIntFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  spoilerRevealed: z.union([ z.boolean(),z.lazy(() => NullableBoolFieldUpdateOperationsInputSchema) ]).optional().nullable(),
   senderUsername: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
 }).strict();
 

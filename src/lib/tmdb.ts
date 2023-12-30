@@ -2,7 +2,9 @@ import { MovieDb } from "moviedb-promise";
 import type {
   DiscoverMovieRequest,
   DiscoverTvRequest,
+  MovieResponse,
   MovieResult,
+  ShowResponse,
   TvResult,
 } from "moviedb-promise";
 
@@ -16,6 +18,12 @@ export const IMG_URL = (path: string | undefined | null, w?: number) =>
 
 export const isMovie = (data: MovieResult | TvResult): data is MovieResult => {
   return "title" in data;
+};
+
+export const isShowResponse = (
+  data: MovieResponse | ShowResponse,
+): data is ShowResponse => {
+  return "name" in data;
 };
 
 export const isMovieRequest = (

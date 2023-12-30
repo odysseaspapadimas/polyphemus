@@ -3,7 +3,7 @@ import Image from "next/image";
 import React from "react";
 import { IMG_URL, isMovie } from "src/lib/tmdb";
 
-const Show = ({
+const MediaResult = ({
   onClick,
   result,
 }: {
@@ -40,4 +40,4 @@ const Show = ({
   );
 };
 
-export default Show;
+export default MediaResult;

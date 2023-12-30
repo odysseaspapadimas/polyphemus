@@ -70,6 +70,12 @@ model Message {
   mediaName  String?
   mediaImage String?
 
+  spoilerMedia       String?
+  spoilerDescription String?
+  spoilerSeason      Int?
+  spoilerEpisode     Int?
+  spoilerRevealed      Boolean?
+
   senderUsername String
   sender         User   @relation(fields: [senderUsername], references: [username], onDelete: Cascade)
 

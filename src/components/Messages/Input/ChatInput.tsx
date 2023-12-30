@@ -8,6 +8,8 @@ import { api } from "src/trpc/react";
 import SendMedia from "./SendMedia";
 import type { Message } from "prisma/generated/zod";
 import type { MovieResult, PersonResult, TvResult } from "moviedb-promise";
+import Spoiler from "./Spoiler";
+import { isMovie } from "src/lib/tmdb";
 
 type Props = {
   username: string;
@@ -16,6 +18,16 @@ type Props = {
 const ChatInput = ({ username }: Props) => {
   const [input, setInput] = useState("");
   const formRef = useRef<HTMLFormElement>(null);
+
+  //For the spoiler
+  const [selectedMedia, setSelectedMedia] = useState<
+    MovieResult | TvResult | null
+  >(null);
+
+  const [selectedSeason, setSelectedSeason] = useState<number | null>(null);
+  const [selectedEpisode, setSelectedEpisode] = useState<number | null>(null);
+
+  const [spoilerDescription, setSpoilerDescription] = useState("");
 
   const { socketId } = useContext(PusherContext);
 
@@ -51,17 +63,50 @@ const ChatInput = ({ username }: Props) => {
         mediaName: name ?? "Unknown",
         mediaType,
         mediaImage: image ?? null,
+        spoilerMedia: null,
+        spoilerSeason: null,
+        spoilerEpisode: null,
+        spoilerDescription: null,
+        spoilerRevealed: null,
       });
     } else {
-      sendMessage.mutate({
-        content: input,
-        to: username,
-        socketId,
-        mediaId: null,
-        mediaName: null,
-        mediaType: null,
-        mediaImage: null,
-      });
+      if (selectedMedia) {
+        sendMessage.mutate({
+          content: input,
+          to: username,
+          socketId,
+          mediaId: null,
+          mediaName: null,
+          mediaType: null,
+          mediaImage: null,
+          spoilerMedia: isMovie(selectedMedia)
+            ? selectedMedia.title
+              ? selectedMedia.title
+              : "Unavailable"
+            : selectedMedia.name
+            ? selectedMedia.name
+            : "Unavailable",
+          spoilerSeason: selectedSeason ?? null,
+          spoilerEpisode: selectedEpisode ?? null,
+          spoilerDescription: spoilerDescription ?? null,
+          spoilerRevealed: false,
+        });
+      } else {
+        sendMessage.mutate({
+          content: input,
+          to: username,
+          socketId,
+          mediaId: null,
+          mediaName: null,
+          mediaType: null,
+          mediaImage: null,
+          spoilerMedia: null,
+          spoilerSeason: null,
+          spoilerEpisode: null,
+          spoilerDescription: null,
+          spoilerRevealed: null,
+        });
+      }
     }
   };
 
@@ -82,6 +127,11 @@ const ChatInput = ({ username }: Props) => {
       mediaName,
       mediaType,
       mediaImage,
+      spoilerMedia,
+      spoilerSeason,
+      spoilerEpisode,
+      spoilerDescription,
+      spoilerRevealed,
     }) => {
       await utils.messages.getChat.cancel();
       utils.messages.getChat.setData({ username }, (chatQuery) => {
@@ -98,6 +148,11 @@ const ChatInput = ({ username }: Props) => {
           mediaName,
           mediaType,
           mediaImage,
+          spoilerMedia,
+          spoilerSeason,
+          spoilerEpisode,
+          spoilerDescription,
+          spoilerRevealed,
           //chat has 2 users, my user is the one that i'm not sending to
           senderUsername: chatQuery.chat.users.find(
             (user) => user.username !== to,
@@ -124,7 +179,6 @@ const ChatInput = ({ username }: Props) => {
       onSubmit={handleSubmit}
       className="mx-auto mb-4 mt-auto flex w-[95%] items-center space-x-2 self-center"
     >
-      {/* <SendMedia user={myUser?.username} otherUser={user?.username} /> */}
       <SendMedia handleSend={handleSend} />
       <Textarea
         value={input}
@@ -136,10 +190,23 @@ const ChatInput = ({ username }: Props) => {
         className="flex-1"
         placeholder="Enter message"
         rightSection={
-          <button disabled={!input}>
-            <IconSend size={20} className="" />
-          </button>
+          <div className="flex items-center space-x-2">
+            <button disabled={!input}>
+              <IconSend size={20} className="" />
+            </button>
+            <Spoiler
+              selectedEpisode={selectedEpisode}
+              selectedMedia={selectedMedia}
+              selectedSeason={selectedSeason}
+              setSelectedEpisode={setSelectedEpisode}
+              setSelectedMedia={setSelectedMedia}
+              setSelectedSeason={setSelectedSeason}
+              setSpoilerDescription={setSpoilerDescription}
+              spoilerDescription={spoilerDescription}
+            />
+          </div>
         }
+        rightSectionWidth={68}
       />
     </form>
   );

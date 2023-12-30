@@ -36,13 +36,14 @@ const SendMedia = ({ handleSend }: Props) => {
       onChange={() => setOpened((o) => !o)}
       withArrow
       trapFocus
+      offset={14}
       width={300}
       arrowOffset={12}
     >
       <Popover.Target>
         <IconPlus
-          onClick={() => setOpened(true)}
-          className="cursor-pointer rounded-full border border-white hover:border-primary hover:text-primary"
+          onClick={() => setOpened((o) => !o)}
+          className="cursor-pointer  hover:text-primary"
         />
       </Popover.Target>
       <Popover.Dropdown h={585}>
