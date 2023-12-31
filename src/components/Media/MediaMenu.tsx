@@ -9,13 +9,16 @@ import useAddToList from "src/hooks/add-to-list";
 import useRemoveFromList from "src/hooks/remove-from-list";
 import { api } from "src/trpc/react";
 import { listDict } from "src/lib/dict";
+import type { MovieResponse, ShowResponse } from "moviedb-promise";
 
 type Props = {
   mediaId: number;
+  mediaImage: MovieResponse["poster_path"] | ShowResponse["poster_path"];
+  mediaName: MovieResponse["title"];
   mediaType: "MOVIE" | "SHOW";
 };
 
-const MediaMenu = ({ mediaId, mediaType }: Props) => {
+const MediaMenu = ({ mediaId, mediaType, mediaImage, mediaName }: Props) => {
   const listEntryQuery = api.list.getEntry.useQuery(
     {
       mediaId,
@@ -42,15 +45,15 @@ const MediaMenu = ({ mediaId, mediaType }: Props) => {
     }
     if (status === "WATCHING") {
       if (listEntryQuery.data?.status !== "WATCHING") {
-        addToList.mutate({ mediaId, mediaType, status });
+        addToList.mutate({ mediaId, mediaType, status, mediaImage, mediaName });
       }
     } else if (status === "PLAN_TO_WATCH") {
       if (listEntryQuery.data?.status !== "PLAN_TO_WATCH") {
-        addToList.mutate({ mediaId, mediaType, status });
+        addToList.mutate({ mediaId, mediaType, status, mediaImage, mediaName });
       }
     } else if (status === "COMPLETED") {
       if (listEntryQuery.data?.status !== "COMPLETED") {
-        addToList.mutate({ mediaId, mediaType, status });
+        addToList.mutate({ mediaId, mediaType, status, mediaImage, mediaName });
       }
     }
   };

@@ -76,8 +76,6 @@ const ShowPage = async ({ params }: Props) => {
     base64 = res.base64;
   }
 
-  console.log(show.first_air_date, show.last_air_date, "dates");
-
   return (
     <>
       <div className="relative">
@@ -166,6 +164,8 @@ const ShowPage = async ({ params }: Props) => {
                 <UserActions
                   mediaId={show.id!}
                   mediaType="SHOW"
+                  mediaName={show.name}
+                  mediaImage={show.poster_path}
                   status={status}
                 />
               )}
@@ -316,7 +316,6 @@ const ShowPage = async ({ params }: Props) => {
                       alt="last season poster"
                       width={150}
                       height={225}
-                      layout="fixed"
                       className="rounded-l-md"
                     />
                   ) : (

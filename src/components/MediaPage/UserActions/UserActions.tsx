@@ -5,14 +5,23 @@ import type { Status } from "@prisma/client";
 import useAddToList from "src/hooks/add-to-list";
 import useRemoveFromList from "src/hooks/remove-from-list";
 import UserAction from "./UserAction";
+import type { MovieResponse, ShowResponse } from "moviedb-promise";
 
 type Props = {
   mediaId: number;
+  mediaImage: MovieResponse["poster_path"] | ShowResponse["poster_path"];
+  mediaName: MovieResponse["title"];
   mediaType: "MOVIE" | "SHOW";
   status: Status | null;
 };
 
-const UserActions = ({ mediaId, mediaType, status }: Props) => {
+const UserActions = ({
+  mediaId,
+  mediaType,
+  mediaImage,
+  mediaName,
+  status,
+}: Props) => {
   const listEntryStatus = api.list.getEntry.useQuery(
     {
       mediaId,
@@ -35,15 +44,15 @@ const UserActions = ({ mediaId, mediaType, status }: Props) => {
     }
     if (status === "WATCHING") {
       if (listEntryStatus.data?.status !== "WATCHING") {
-        addToList.mutate({ mediaId, mediaType, status });
+        addToList.mutate({ mediaId, mediaType, mediaImage, mediaName, status });
       }
     } else if (status === "PLAN_TO_WATCH") {
       if (listEntryStatus.data?.status !== "PLAN_TO_WATCH") {
-        addToList.mutate({ mediaId, mediaType, status });
+        addToList.mutate({ mediaId, mediaType, mediaImage, mediaName, status });
       }
     } else if (status === "COMPLETED") {
       if (listEntryStatus.data?.status !== "COMPLETED") {
-        addToList.mutate({ mediaId, mediaType, status });
+        addToList.mutate({ mediaId, mediaType, mediaImage, mediaName, status });
       }
     }
   };

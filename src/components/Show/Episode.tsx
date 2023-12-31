@@ -12,7 +12,6 @@ type Props = {
 };
 
 const Episode = ({ episode, backdrop, isNext }: Props) => {
-  console.log(episode, "episode");
   return (
     <div>
       <h2 className="mb-2 text-2xl font-semibold">

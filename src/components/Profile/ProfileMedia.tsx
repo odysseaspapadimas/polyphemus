@@ -58,6 +58,8 @@ const ProfileMedia = ({ data, session }: Props) => {
           <MediaMenu
             mediaId={data.id!}
             mediaType={isMovie(data) ? "MOVIE" : "SHOW"}
+            mediaImage={data.poster_path}
+            mediaName={name}
           />
         )}
       </div>

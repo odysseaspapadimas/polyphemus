@@ -28,6 +28,7 @@ model User {
 
   chats    Chat[]
   messages Message[]
+  Activity Activity[]
 }
 
 model WatchlistEntry {
@@ -74,7 +75,7 @@ model Message {
   spoilerDescription String?
   spoilerSeason      Int?
   spoilerEpisode     Int?
-  spoilerRevealed      Boolean?
+  spoilerRevealed    Boolean?
 
   senderUsername String
   sender         User   @relation(fields: [senderUsername], references: [username], onDelete: Cascade)
@@ -96,6 +97,23 @@ model Chat {
 
   messages Message[]
   users    User[]
+}
+
+model Activity {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  status Status
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  mediaId    Int
+  mediaType  MediaType
+  mediaName  String?
+  mediaImage String?
+
+  @@unique([userId, mediaId, mediaType, status])
 }
 
 model Account {

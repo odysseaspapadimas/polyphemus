@@ -77,10 +77,7 @@ const Spoiler = ({
     <Popover
       position="top-end"
       opened={opened}
-      onChange={() => {
-        console.log("trigger!");
-        setOpened((o) => !o);
-      }}
+      onChange={() => setOpened((o) => !o)}
       withArrow
       width={325}
       offset={16}
@@ -193,7 +190,6 @@ const Spoiler = ({
                     }
                     onChange={(value) => {
                       setSelectedSeason(parseInt(value ?? "0"));
-                      console.log(parseInt(value ?? "0"), "season");
                     }}
                     data={
                       mediaQuery.data.seasons

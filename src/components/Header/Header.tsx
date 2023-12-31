@@ -3,6 +3,7 @@ import { getServerAuthSession } from "src/server/auth";
 import HeaderUserMenu from "./HeaderUserMenu";
 import HeaderMenu from "./HeaderMenu";
 import Search from "./Search";
+import Activity from "./Activity";
 
 const Header = async () => {
   const session = await getServerAuthSession();
@@ -14,6 +15,7 @@ const Header = async () => {
 
         <Group gap="lg">
           <Search />
+          {session && <Activity />}
           <HeaderUserMenu session={session} />
         </Group>
       </Container>

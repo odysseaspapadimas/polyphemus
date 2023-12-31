@@ -35,14 +35,18 @@ export const listRouter = createTRPCRouter({
       z.object({
         mediaId: z.number(),
         mediaType: MediaTypeSchema,
+        mediaImage: z.string().nullish(),
+        mediaName: z.string().optional(),
         status: StatusSchema,
       }),
     )
     .mutation(async ({ ctx, input }) => {
       const res = await ctx.db.watchlistEntry.create({
         data: {
-          userId: ctx.session?.user.id,
-          ...input,
+          userId: ctx.session.user.id,
+          mediaId: input.mediaId,
+          mediaType: input.mediaType,
+          status: input.status,
         },
       });
       return res;

@@ -72,6 +72,8 @@ const Media = async ({ data }: { data: MovieResult | TvResult }) => {
           <MediaMenu
             mediaId={data.id!}
             mediaType={isMovie(data) ? "MOVIE" : "SHOW"}
+            mediaImage={data.poster_path}
+            mediaName={name}
           />
         )}
       </div>

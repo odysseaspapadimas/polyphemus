@@ -1,6 +1,10 @@
 import { z } from "zod";
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "../trpc";
-import { UserSchema } from "prisma/generated/zod";
+import {
+  MediaTypeSchema,
+  StatusSchema,
+  UserSchema,
+} from "prisma/generated/zod";
 
 export const userRouter = createTRPCRouter({
   exists: publicProcedure
@@ -143,5 +147,91 @@ export const userRouter = createTRPCRouter({
 
         return res;
       }
+    }),
+  activity: protectedProcedure.query(async ({ ctx }) => {
+    //get all activity of users the user follows
+    const { following } =
+      (await ctx.db.user.findUnique({
+        where: {
+          id: ctx.session.user.id,
+        },
+        select: {
+          following: {
+            select: {
+              username: true,
+            },
+          },
+        },
+      })) || {};
+
+    if (!following) {
+      return [];
+    }
+
+    const res = await ctx.db.activity.findMany({
+      where: {
+        user: {
+          username: {
+            in: following
+              .filter((user) => user.username !== null)
+              .map((user) => user.username!),
+          },
+        },
+      },
+      include: {
+        user: true,
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
+
+    return res;
+  }),
+  addActivity: protectedProcedure
+    .input(
+      z.object({
+        mediaId: z.number(),
+        mediaType: MediaTypeSchema,
+        mediaImage: z.string().nullish(),
+        mediaName: z.string().optional(),
+        status: StatusSchema,
+      }),
+    )
+    .mutation(async ({ input, ctx }) => {
+      const res = await ctx.db.activity.create({
+        data: {
+          userId: ctx.session.user.id,
+          mediaId: input.mediaId,
+          mediaType: input.mediaType,
+          mediaImage: input.mediaImage,
+          mediaName: input.mediaName,
+          status: input.status,
+        },
+      });
+
+      return res;
+    }),
+  removeActivity: protectedProcedure
+    .input(
+      z.object({
+        mediaId: z.number(),
+        mediaType: MediaTypeSchema,
+        status: StatusSchema,
+      }),
+    )
+    .mutation(async ({ input, ctx }) => {
+      const res = await ctx.db.activity.delete({
+        where: {
+          userId_mediaId_mediaType_status: {
+            userId: ctx.session.user.id,
+            mediaId: input.mediaId,
+            mediaType: input.mediaType,
+            status: input.status,
+          },
+        },
+      });
+
+      return res;
     }),
 });

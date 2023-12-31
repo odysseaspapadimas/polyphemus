@@ -121,6 +121,8 @@ const MoviePage = async ({ params }: Props) => {
                   mediaId={movie.id!}
                   mediaType="MOVIE"
                   status={status}
+                  mediaImage={movie.poster_path}
+                  mediaName={movie.title}
                 />
               )}
               {/* {user && (
