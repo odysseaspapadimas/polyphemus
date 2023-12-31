@@ -167,6 +167,7 @@ const ShowPage = async ({ params }: Props) => {
                   mediaName={show.name}
                   mediaImage={show.poster_path}
                   status={status}
+                  media={show}
                 />
               )}
             </div>

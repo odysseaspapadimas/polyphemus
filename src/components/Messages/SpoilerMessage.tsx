@@ -18,6 +18,7 @@ const SpoilerMessage = ({ mine, last, message }: Props) => {
       await utils.messages.getChat.invalidate({
         username: message.senderUsername,
       });
+      await utils.messages.getChats.invalidate();
     },
   });
 
@@ -64,6 +65,8 @@ const SpoilerMessage = ({ mine, last, message }: Props) => {
           {message.spoilerMedia}
           {message.spoilerSeason && <p>Season {message.spoilerSeason}</p>}
           {message.spoilerEpisode && <p>Episode {message.spoilerEpisode}</p>}
+
+          <p>Description: {message.spoilerDescription}</p>
 
           <Group>
             <Button

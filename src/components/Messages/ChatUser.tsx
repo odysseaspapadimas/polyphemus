@@ -51,7 +51,14 @@ const ChatUser = ({ chat, session, selected }: Props) => {
             className={`block overflow-hidden text-ellipsis whitespace-nowrap text-sm`}
           >
             {myMessage && "You: "}{" "}
-            {lastMessage?.content ? lastMessage.content : ""}
+            {lastMessage &&
+              (lastMessage.spoilerMedia &&
+              !lastMessage.spoilerRevealed &&
+              !myMessage
+                ? `Spoiler for ${lastMessage.spoilerMedia}`
+                : lastMessage.mediaName
+                ? lastMessage.mediaName
+                : lastMessage.content)}
           </p>
           <p className="text-sm">
             {dayjs(lastMessage?.createdAt).format("HH:mm")}

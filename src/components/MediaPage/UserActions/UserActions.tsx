@@ -6,6 +6,7 @@ import useAddToList from "src/hooks/add-to-list";
 import useRemoveFromList from "src/hooks/remove-from-list";
 import UserAction from "./UserAction";
 import type { MovieResponse, ShowResponse } from "moviedb-promise";
+import Recommend from "./Recommend";
 
 type Props = {
   mediaId: number;
@@ -13,6 +14,7 @@ type Props = {
   mediaName: MovieResponse["title"];
   mediaType: "MOVIE" | "SHOW";
   status: Status | null;
+  media: MovieResponse | ShowResponse;
 };
 
 const UserActions = ({
@@ -21,6 +23,7 @@ const UserActions = ({
   mediaImage,
   mediaName,
   status,
+  media,
 }: Props) => {
   const listEntryStatus = api.list.getEntry.useQuery(
     {
@@ -82,7 +85,7 @@ const UserActions = ({
         <Favorite onList={onList} handler={handleFavorite} />
         <Rate id={movieId} type={type} onList={onList} ratings={user.ratings} username={user.username} image_url={user.image_url} mutate={mutateOnList} /> */}
       </div>
-      {/* <Recommend user={user.username} users={user.messages} movie={movie} /> */}
+      <Recommend media={media} />
     </div>
   );
 };
