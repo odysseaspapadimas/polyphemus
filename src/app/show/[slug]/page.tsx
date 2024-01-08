@@ -25,6 +25,7 @@ import { getPlaiceholder } from "plaiceholder";
 import Credits from "src/components/Show/Credits";
 import { IconPhotoOff } from "@tabler/icons-react";
 import Episode from "src/components/Show/Episode";
+import FriendActivity from "src/components/MediaPage/FriendActivity";
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
@@ -61,6 +62,8 @@ const ShowPage = async ({ params }: Props) => {
   }
 
   const status = await getInitialStatus(show.id!);
+
+  const friendActivity = await getFriendActivity(show.id!);
 
   const airTime = await getAirTime(params.slug);
 
@@ -105,7 +108,7 @@ const ShowPage = async ({ params }: Props) => {
                 <IconPhotoOff />
               </div>
             )}
-            {/* {session && <FriendActivity type={type} id={showId} />} */}
+            {friendActivity && <FriendActivity activity={friendActivity} />}
           </div>
           <div className="mt-4 flex flex-1 flex-col justify-center sm:ml-8 sm:mt-0 sm:max-w-2xl">
             <div className="flex">
@@ -457,4 +460,13 @@ const getAirDates = (
   }
 
   return { nextAirDate, lastAirDate };
+};
+
+const getFriendActivity = async (id: number) => {
+  const res = await api.media.friendActivity.query({
+    mediaId: id,
+    mediaType: "SHOW",
+  });
+
+  return res;
 };

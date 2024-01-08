@@ -1,6 +1,7 @@
 import { z } from "zod";
-import { createTRPCRouter, publicProcedure } from "../trpc";
+import { createTRPCRouter, protectedProcedure, publicProcedure } from "../trpc";
 import { tmdb } from "src/lib/tmdb";
+import { MediaTypeSchema } from "prisma/generated/zod";
 
 export const mediaRouter = createTRPCRouter({
   discover: publicProcedure
@@ -101,5 +102,64 @@ export const mediaRouter = createTRPCRouter({
       });
 
       return info;
+    }),
+  friendActivity: protectedProcedure
+    .input(
+      z.object({
+        mediaId: z.number(),
+        mediaType: MediaTypeSchema,
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      try {
+        const user = await ctx.db.user.findUnique({
+          where: {
+            id: ctx.session.user.id,
+            following: {
+              some: {
+                watchListEntries: {
+                  some: {
+                    mediaId: input.mediaId,
+                    mediaType: input.mediaType,
+                  },
+                },
+              },
+            },
+          },
+          include: {
+            following: {
+              select: {
+                username: true,
+                image: true,
+                watchListEntries: {
+                  where: {
+                    mediaId: input.mediaId,
+                    mediaType: input.mediaType,
+                  },
+                  select: {
+                    status: true,
+                  },
+                },
+              },
+            },
+          },
+        });
+
+        if (!user) {
+          // Handle case when the user is not found
+          console.error("User not found");
+          return null; // or throw an error, depending on your use case
+        }
+
+        // Do something with the relevantFollowings data
+        return user.following.map((following) => ({
+          username: following.username,
+          image: following.image,
+          status: following.watchListEntries[0]?.status,
+        })).filter((following) => following.status !== undefined);
+      } catch (error) {
+        console.error("Error:", error);
+        throw error; // Handle the error appropriately, log it, or throw a custom error
+      }
     }),
 });

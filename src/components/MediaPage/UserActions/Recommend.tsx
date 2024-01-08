@@ -16,6 +16,7 @@ const Recommend = ({ media }: Props) => {
 
   const [query, setQuery] = useState("");
   const [debouncedQuery] = useDebouncedValue(query, 500);
+  
   const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
     setQuery(e.currentTarget.value);
   };

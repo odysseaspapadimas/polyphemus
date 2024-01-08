@@ -13,6 +13,7 @@ import { api } from "src/trpc/server";
 import { getPlaiceholder } from "plaiceholder";
 import { IconPhotoOff } from "@tabler/icons-react";
 import Credits from "src/components/Movie/Credits";
+import FriendActivity from "src/components/MediaPage/FriendActivity";
 
 type Props = {
   params: {
@@ -35,6 +36,8 @@ const MoviePage = async ({ params }: Props) => {
   }
 
   const status = await getInitialStatus(movie.id!);
+
+  const friendActivity = await getFriendActivity(movie.id!);
 
   let base64;
   if (movie.poster_path) {
@@ -78,6 +81,8 @@ const MoviePage = async ({ params }: Props) => {
                 <IconPhotoOff />
               </div>
             )}
+
+            {friendActivity && <FriendActivity activity={friendActivity} />}
           </div>
 
           <div className="mt-8 flex flex-1 flex-col justify-center sm:ml-8 sm:mt-0 sm:max-w-2xl">
@@ -192,4 +197,13 @@ const getInitialStatus = async (id: number) => {
   } catch (error) {
     return undefined;
   }
+};
+
+const getFriendActivity = async (id: number) => {
+  const res = await api.media.friendActivity.query({
+    mediaId: id,
+    mediaType: "MOVIE",
+  });
+
+  return res;
 };
