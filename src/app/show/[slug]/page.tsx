@@ -463,10 +463,14 @@ const getAirDates = (
 };
 
 const getFriendActivity = async (id: number) => {
-  const res = await api.media.friendActivity.query({
-    mediaId: id,
-    mediaType: "SHOW",
-  });
+  try {
+    const res = await api.media.friendActivity.query({
+      mediaId: id,
+      mediaType: "SHOW",
+    });
 
-  return res;
+    return res;
+  } catch (error) {
+    return undefined;
+  }
 };

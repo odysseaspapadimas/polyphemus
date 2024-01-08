@@ -200,10 +200,14 @@ const getInitialStatus = async (id: number) => {
 };
 
 const getFriendActivity = async (id: number) => {
-  const res = await api.media.friendActivity.query({
-    mediaId: id,
-    mediaType: "MOVIE",
-  });
+  try {
+    const res = await api.media.friendActivity.query({
+      mediaId: id,
+      mediaType: "MOVIE",
+    });
 
-  return res;
+    return res;
+  } catch (error) {
+    return undefined;
+  }
 };
