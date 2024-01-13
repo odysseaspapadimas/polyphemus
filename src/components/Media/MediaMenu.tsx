@@ -1,6 +1,6 @@
 "use client";
 
-import { Menu, ActionIcon } from "@mantine/core";
+import { Menu, ActionIcon, LoadingOverlay } from "@mantine/core";
 import type { Status } from "@prisma/client";
 import { IconCheck, IconPlus } from "@tabler/icons-react";
 import { IconDots, IconEye } from "@tabler/icons-react";
@@ -10,6 +10,7 @@ import useRemoveFromList from "src/hooks/remove-from-list";
 import { api } from "src/trpc/react";
 import { listDict } from "src/lib/dict";
 import type { MovieResponse, ShowResponse } from "moviedb-promise";
+import { useDisclosure } from "@mantine/hooks";
 
 type Props = {
   mediaId: number;
@@ -19,12 +20,17 @@ type Props = {
 };
 
 const MediaMenu = ({ mediaId, mediaType, mediaImage, mediaName }: Props) => {
+  const [opened, { open, close }] = useDisclosure();
+
   const listEntryQuery = api.list.getEntry.useQuery(
     {
       mediaId,
       mediaType,
     },
-    { refetchOnWindowFocus: false },
+    {
+      refetchOnWindowFocus: false,
+      enabled: opened,
+    },
   );
 
   const addToList = useAddToList();
@@ -59,7 +65,7 @@ const MediaMenu = ({ mediaId, mediaType, mediaImage, mediaName }: Props) => {
   };
   return (
     <div className="absolute right-2 top-2">
-      <Menu>
+      <Menu opened={opened} onOpen={open} onClose={close}>
         <Menu.Target>
           <ActionIcon
             className="transition-colors duration-75 hover:bg-dark-hover"
@@ -69,6 +75,10 @@ const MediaMenu = ({ mediaId, mediaType, mediaImage, mediaName }: Props) => {
           </ActionIcon>
         </Menu.Target>
         <Menu.Dropdown>
+          <LoadingOverlay
+            visible={listEntryQuery.isLoading}
+            loaderProps={{ size: "xs" }}
+          />
           <Menu.Label>Add to list</Menu.Label>
           <Menu.Item
             onClick={handleList}

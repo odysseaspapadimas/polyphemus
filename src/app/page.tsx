@@ -1,21 +1,15 @@
-import { tmdb } from "src/lib/tmdb";
 import type { MovieResult, TvResult } from "moviedb-promise";
 import Media from "src/components/Media/Media";
 import { Container } from "@mantine/core";
+import { tmdb } from "src/lib/tmdb";
+import { cache } from "react";
+
+export const revalidate = 60 * 60 * 24;
 
 export default async function Home() {
-  const trendingMovies = await tmdb.trending({
-    media_type: "movie",
-    time_window: "day",
-  });
+  const movies = await getMovies();
 
-  const movies = trendingMovies.results as MovieResult[];
-
-  const trendingShows = await tmdb.trending({
-    media_type: "tv",
-    time_window: "day",
-  });
-  const shows = trendingShows.results as TvResult[];
+  const shows = await getShows();
 
   return (
     <Container size="md" my={36}>
@@ -48,3 +42,23 @@ export default async function Home() {
     </Container>
   );
 }
+
+const getMovies = cache(async () => {
+  const trendingMovies = await tmdb.trending({
+    media_type: "movie",
+    time_window: "day",
+  });
+
+  const movies = trendingMovies.results as MovieResult[];
+  return movies;
+});
+
+const getShows = cache(async () => {
+  const trendingShows = await tmdb.trending({
+    media_type: "tv",
+    time_window: "day",
+  });
+  const shows = trendingShows.results as TvResult[];
+
+  return shows;
+});

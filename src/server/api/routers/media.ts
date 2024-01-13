@@ -147,7 +147,6 @@ export const mediaRouter = createTRPCRouter({
 
         if (!user) {
           // Handle case when the user is not found
-          console.error("User not found");
           return null; // or throw an error, depending on your use case
         }
 
