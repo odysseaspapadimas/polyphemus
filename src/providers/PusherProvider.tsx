@@ -2,7 +2,7 @@
 
 import type { Session } from "next-auth";
 import Pusher from "pusher-js";
-import { createContext, useEffect, useMemo, useRef, useState } from "react";
+import { createContext, useEffect, useRef, useState } from "react";
 import { env } from "src/env.mjs";
 import { api } from "src/trpc/react";
 
@@ -23,12 +23,16 @@ const PusherProvider = ({
   children: React.ReactNode;
   session: Session | null;
 }) => {
-  const pusher = useMemo(() => {
-    console.log("Pusher init");
-    return new Pusher(env.NEXT_PUBLIC_PUSHER_KEY, {
+  const [pusher, setPusher] = useState<PusherContextType["pusher"]>(null);
+  useEffect(() => {
+    if (!session) return;
+    const pusher = new Pusher(env.NEXT_PUBLIC_PUSHER_KEY, {
       cluster: "mt1",
     });
-  }, []);
+    console.log("Pusher initialized");
+
+    setPusher(pusher);
+  }, [session]);
 
   const [socketId, setSocketId] =
     useState<PusherContextType["socketId"]>(undefined);
@@ -73,6 +77,7 @@ const PusherProvider = ({
   ]);
 
   useEffect(() => {
+    if (!pusher) return;
     pusher.connection.bind("connected", () => {
       setSocketId(pusher.connection.socket_id);
     });
