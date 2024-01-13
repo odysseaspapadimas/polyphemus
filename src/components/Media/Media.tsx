@@ -51,7 +51,11 @@ const Media = async ({ data }: { data: MovieResult | TvResult }) => {
         >
           <span>{Math.round((data.vote_average ?? 0) * 10) / 10}</span>
         </div>
-        <Link href={link} className="relative block aspect-[1/1.5] w-[160px]">
+        <Link
+          href={link}
+          prefetch={false}
+          className="relative block aspect-[1/1.5] w-[160px]"
+        >
           {data.poster_path ? (
             <Image
               alt={`${type} poster`}
