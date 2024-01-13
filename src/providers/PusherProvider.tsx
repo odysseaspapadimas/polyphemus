@@ -23,13 +23,12 @@ const PusherProvider = ({
   children: React.ReactNode;
   session: Session | null;
 }) => {
-  const pusher = useMemo(
-    () =>
-      new Pusher(env.NEXT_PUBLIC_PUSHER_KEY, {
-        cluster: "mt1",
-      }),
-    [],
-  );
+  const pusher = useMemo(() => {
+    console.log("Pusher init");
+    return new Pusher(env.NEXT_PUBLIC_PUSHER_KEY, {
+      cluster: "mt1",
+    });
+  }, []);
 
   const [socketId, setSocketId] =
     useState<PusherContextType["socketId"]>(undefined);
