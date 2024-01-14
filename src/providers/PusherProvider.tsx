@@ -29,9 +29,12 @@ const PusherProvider = ({
     const pusher = new Pusher(env.NEXT_PUBLIC_PUSHER_KEY, {
       cluster: "mt1",
     });
-    console.log("Pusher initialized");
-
     setPusher(pusher);
+
+    return () => {
+      pusher.disconnect();
+      setPusher(null);
+    };
   }, [session]);
 
   const [socketId, setSocketId] =

@@ -1,10 +1,11 @@
+/* eslint-disable @next/next/no-img-element */
 import type { MovieResponse, ShowResponse } from "moviedb-promise";
-import Image from "next/image";
 import Link from "next/link";
 import slug from "src/lib/slug";
 import { IMG_URL } from "src/lib/tmdb";
 import MediaMenu from "../Media/MediaMenu";
 import type { Session } from "next-auth";
+import BlurryImage from "../Media/BlurryImage";
 
 type Props = {
   data: MovieResponse | ShowResponse;
@@ -46,7 +47,7 @@ const ProfileMedia = ({ data, session }: Props) => {
           <span>{Math.round((data.vote_average ?? 0) * 10) / 10}</span>
         </div>
         <Link href={link}>
-          <Image
+          <BlurryImage
             alt={`${type} poster`}
             src={IMG_URL(data.poster_path, 300)}
             width={172.8}
