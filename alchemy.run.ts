@@ -1,42 +1,30 @@
-import type { Sandbox } from "@cloudflare/sandbox";
 import * as Alchemy from "alchemy";
 import * as Cloudflare from "alchemy/Cloudflare";
-import * as Config from "effect/Config";
 import * as Effect from "effect/Effect";
+import ControlWorker from "./src/ControlWorker.ts";
+import { RunArtifactsBucket } from "./src/RunArtifactsBucket.ts";
+import { SpikeWorker } from "./src/SpikeWorker.ts";
 
-export const SpikeWorker = Effect.gen(function* () {
-  const openCodeApiKey = yield* Config.redacted("OPENCODE_API_KEY");
-  const spikeApiToken = yield* Config.redacted("SPIKE_API_TOKEN");
+export { SpikeWorker };
 
-  const sandboxContainer = Cloudflare.Container<Sandbox>("SandboxContainer", {
-    className: "Sandbox",
-    context: `${import.meta.dirname}/runner`,
-    // beta.65 resolves this path from the stack cwd rather than `context`.
-    dockerfile: `${import.meta.dirname}/runner/Dockerfile`,
-    instanceType: "lite",
-    maxInstances: 1,
-    observability: { logs: { enabled: true } },
-  });
+export const Website = Effect.gen(function* () {
+  const controlWorker = yield* ControlWorker;
 
-  const worker = yield* Cloudflare.Worker("SpikeWorker", {
-    name: "polyphemus-spike",
-    main: `${import.meta.dirname}/src/worker.ts`,
+  return yield* Cloudflare.Website.Vite("Website", {
+    name: "polyphemus",
     url: true,
+    dev: { port: 1339, strictPort: true },
     compatibility: {
       date: "2026-07-28",
       flags: ["nodejs_compat"],
     },
-    observability: { enabled: true, logs: { enabled: true, invocationLogs: true } },
     env: {
-      Sandbox: sandboxContainer,
-      OPENCODE_API_KEY: openCodeApiKey,
-      SPIKE_API_TOKEN: spikeApiToken,
-      SANDBOX_TRANSPORT: "rpc",
+      CONTROL_WORKER: controlWorker,
     },
   });
-
-  return worker;
 });
+
+export type WebsiteEnv = Cloudflare.InferEnv<typeof Website>;
 
 export default Alchemy.Stack(
   "Polyphemus",
@@ -45,7 +33,15 @@ export default Alchemy.Stack(
     state: Alchemy.localState(),
   },
   Effect.gen(function* () {
-    const worker = yield* SpikeWorker;
-    return { spikeWorkerUrl: worker.url };
+    const spikeWorker = yield* SpikeWorker;
+    const controlWorker = yield* ControlWorker;
+    const runArtifacts = yield* RunArtifactsBucket;
+    const website = yield* Website;
+    return {
+      controlWorkerName: controlWorker.workerName,
+      runArtifactsBucketName: runArtifacts.bucketName,
+      spikeWorkerUrl: spikeWorker.url,
+      websiteUrl: website.url,
+    };
   }),
 );

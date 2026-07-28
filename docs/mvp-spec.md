@@ -139,7 +139,8 @@ An Agent Run that returns a Patch but fails required validation is **completed, 
 
 ## Architecture direction
 
-- **Control Worker / task coordinator:** Run Request boundary and Repository Task coordination.
+- **Control Worker:** private Run Request, status, cancellation, and Run Result boundary.
+- **Repository Task coordinator Durable Object:** authoritative per-task Agent Run snapshot and active-run invariant.
 - **Cloudflare Workflow:** durable Agent Run stages, retries, budgets, cancellation, persistence, and cleanup.
 - **Official Cloudflare Sandbox SDK:** isolated repository filesystem, processes, Pi runtime, and validation environment.
 - **Pi SDK:** adaptive repository investigation and bounded modification.
@@ -148,6 +149,14 @@ An Agent Run that returns a Patch but fails required validation is **completed, 
 - **R2:** durable Run Results and Patch evidence.
 
 A conversational Cloudflare Agent workspace remains a later product layer, not a prerequisite for proving the submit-and-observe path.
+
+## Controlled-fixture product shell
+
+The deployed shell exercises the proven fixture through the intended user journey: submit, observe normalized progress, cancel, and inspect the Patch, findings, budgets, and independent validation evidence. A TanStack Start server-function boundary calls a private Control Worker through a Cloudflare service binding, so the browser never receives internal credentials.
+
+The Control Worker creates one Repository Task coordinator Durable Object and one Cloudflare Workflow for each submitted Run Request. The coordinator is authoritative for the current Repository Task and Agent Run snapshot; the Workflow owns provisioning, observation, independent validation, terminal persistence, and cleanup; R2 owns immutable completed, failed, and cancelled Run Result artifacts. The browser retains only the opaque task and run identifiers in the URL, allowing a refresh to reconstruct state from the control plane rather than browser storage.
+
+This remains a controlled-fixture vertical slice. Arbitrary repositories, additional Agent Runs within an existing Repository Task, a searchable task index, credential proxying, and cross-device task discovery remain subsequent MVP work.
 
 ## Acceptance criteria
 

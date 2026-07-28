@@ -4,6 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "dev": "alchemy dev",
+    "dev:vite": "vite dev",
+    "build": "vite build",
     "test": "bun test",
     "typecheck": "tsc --noEmit",
     "alchemy:plan": "bun alchemy plan",
@@ -16,13 +19,23 @@
     "@earendil-works/pi-coding-agent": "0.82.1",
     "@effect/platform-bun": "4.0.0-beta.102",
     "@effect/platform-node": "4.0.0-beta.102",
+    "@tanstack/react-query": "5.101.2",
+    "@tanstack/react-router": "1.170.17",
+    "@tanstack/react-start": "1.168.27",
     "alchemy": "https://pkg.ing/alchemy/98209fc",
     "effect": "4.0.0-beta.102",
+    "lucide-react": "1.24.0",
+    "react": "19.2.7",
+    "react-dom": "19.2.7",
     "typebox": "1.1.38"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "5.20260728.1",
     "@types/bun": "1.3.14",
-    "typescript": "6.0.3"
+    "@types/react": "19.2.14",
+    "@types/react-dom": "19.2.3",
+    "@vitejs/plugin-react": "6.0.3",
+    "typescript": "6.0.3",
+    "vite": "8.1.2"
   }
 }
