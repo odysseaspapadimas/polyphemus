@@ -1,0 +1,7 @@
+node_modules/
+.alchemy/
+.env
+.dev.vars
+coverage/
+dist/
+*.log

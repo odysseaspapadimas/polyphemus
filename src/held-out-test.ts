@@ -1,0 +1,31 @@
+export const HELD_OUT_TEST_SOURCE = `import { expect, test } from "bun:test";
+import { mergeRanges } from "/workspace/repository/src/merge-ranges.ts";
+
+test("preserves the furthest covered endpoint across multiple contained ranges", () => {
+  expect(mergeRanges([
+    { start: 0, end: 20 },
+    { start: 2, end: 4 },
+    { start: 6, end: 8 },
+    { start: 19, end: 25 },
+    { start: 30, end: 31 },
+  ])).toEqual([
+    { start: 0, end: 25 },
+    { start: 30, end: 31 },
+  ]);
+});
+
+test("handles duplicate contained ranges without mutating their values", () => {
+  const input = [
+    { start: -5, end: 5 },
+    { start: -5, end: 1 },
+    { start: 4, end: 8 },
+  ] as const;
+
+  expect(mergeRanges(input)).toEqual([{ start: -5, end: 8 }]);
+  expect(input).toEqual([
+    { start: -5, end: 5 },
+    { start: -5, end: 1 },
+    { start: 4, end: 8 },
+  ]);
+});
+`;
