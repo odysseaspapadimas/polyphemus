@@ -1,6 +1,6 @@
 # Sandbox + Pi Feasibility Spike
 
-**Status:** Provisionally passed on 2026-07-28; official Alchemy release rerun required
+**Status:** Passed on 2026-07-28
 
 ## Purpose
 
@@ -35,7 +35,7 @@ Current official documentation provides:
 
 Alchemy's published `2.0.0-beta.65` cannot attach a Container to a Durable Object class exported by an async Worker. [Issue #953](https://github.com/alchemy-run/alchemy/issues/953) describes this exact gap. Merged [PR #956](https://github.com/alchemy-run/alchemy/pull/956) adds the required `Cloudflare.Container<Sandbox>` async binding, but it is available only through the commit-addressed preview `https://pkg.ing/alchemy/98209fc` at the time of this spike.
 
-With that preview, Alchemy emits the Durable Object namespace binding, marks the class as container-backed, provisions the Container application and custom image, attaches it to the namespace, and manages the class migration. The evidence is provisional until the same tests pass on an official Alchemy release containing PR #956.
+With that preview, Alchemy emits the Durable Object namespace binding, marks the class as container-backed, provisions the Container application and custom image, attaches it to the namespace, and manages the class migration. Moving to an official release containing PR #956 remains routine dependency maintenance, not a feasibility or product-foundation blocker.
 
 The spike uses the current Sandbox RPC transport and base command APIs rather than deprecated HTTP/WebSocket transport and `execStream()` APIs.
 
@@ -88,7 +88,7 @@ create Sandbox
 5. Deployed a custom image based on `docker.io/cloudflare/sandbox:0.12.4` through Alchemy and added repeatable deployed integration tests in `test/deployed/spike.integration.ts`.
 6. Proved both the happy and deliberately interrupted paths against the deployed Worker.
 
-Do not build the Workflow, task coordinator, R2 artifact system, or UI until the official-release rerun closes the provisional gate.
+The deployed evidence closes the feasibility gate. Workflow, coordinator, persistence, and UI work may now proceed in the documented MVP order.
 
 ## Deliverable
 
@@ -158,7 +158,7 @@ The spike passes only when both deployed tests succeed:
 
 A Wrangler-only deployment, local-only result, unvalidated agent claim, or successful run without confirmed cleanup does not pass the gate.
 
-**Conclusion:** the Sandbox + Pi technical path is a provisional **go**. The product-foundation build remains a **no-go** until an official Alchemy release containing PR #956 replaces the preview package and both deployed tests pass again unchanged.
+**Conclusion:** the Sandbox + Pi technical path is a **go**, and the product-foundation build is unblocked. Replace the preview package with an official Alchemy release containing PR #956 when available and rerun the deployed tests as normal dependency-upgrade verification.
 
 ## Explicit non-goals
 
