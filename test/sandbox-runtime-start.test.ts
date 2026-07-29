@@ -22,6 +22,7 @@ describe("Sandbox Runtime start adapter", () => {
   test("persists an authenticated strategy and starts the isolated runner identity", async () => {
     const files = new Map<string, string>();
     const commands: string[] = [];
+    const executions: Array<{ command: string; options: unknown }> = [];
     let configured = false;
     let startedCommand: string | undefined;
     let startedOptions: Record<string, unknown> | undefined;
@@ -43,8 +44,9 @@ describe("Sandbox Runtime start adapter", () => {
         const targetDir = (options as { targetDir?: string }).targetDir!;
         return { success: true, repoUrl, branch: "main", targetDir, timestamp };
       },
-      async exec(command: string) {
+      async exec(command: string, options?: unknown) {
         commands.push(command);
+        executions.push({ command, options });
         const stdout = command.includes("rev-parse")
           ? `${baseSha}\n`
           : command.startsWith("for file in ")
@@ -132,6 +134,9 @@ describe("Sandbox Runtime start adapter", () => {
     expect(commands.filter((command) => command.includes(
       "/usr/local/bin/polyphemus-repository-cleanup",
     )).length).toBeGreaterThanOrEqual(2);
+    const baseline = executions.find(({ command }) =>
+      command.includes("'/bin/sh' '-c' 'vitest'"));
+    expect(baseline?.options).toMatchObject({ timeout: 300_000 });
     expect(startedCommand).toBe(
       `/usr/local/bin/polyphemus-agent-exec bun --config ${REPOSITORY_SAFE_BUNFIG_PATH} /opt/polyphemus/main.ts`,
     );

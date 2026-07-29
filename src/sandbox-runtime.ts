@@ -159,6 +159,7 @@ const REPOSITORY_CLEANUP = "/usr/local/bin/polyphemus-repository-cleanup";
 const AGENT_EXECUTOR = "/usr/local/bin/polyphemus-agent-exec";
 const COREPACK_HOME = "/var/lib/polyphemus-corepack";
 const RUNNER_DIR = "/opt/polyphemus";
+const REPOSITORY_VALIDATION_TIMEOUT_MS = 5 * 60_000;
 const SAFE_YARN_RC_PATH = `${REPOSITORY_DIR}/${REPOSITORY_SAFE_YARN_RC_FILENAME}`;
 const SAFE_YARN_RC_SOURCE = [
   "nodeLinker: node-modules",
@@ -771,7 +772,7 @@ const startRun = (request: Request, env: SandboxRuntimeEnv) => Effect.gen(functi
         sandbox,
         "record-baseline",
         renderRepositoryExecutionCommand(baselineCheck.command),
-        { cwd: REPOSITORY_DIR, timeout: 120_000 },
+        { cwd: REPOSITORY_DIR, timeout: REPOSITORY_VALIDATION_TIMEOUT_MS },
       );
   yield* stopRepositoryProcesses(sandbox, "cleanup-baseline-processes");
 
@@ -1034,7 +1035,7 @@ const collectFinalResult = (
     const command = renderRepositoryExecutionCommand(check.command);
     const result = yield* exec(sandbox, `validate-${check.name}`, command, {
       cwd: REPOSITORY_DIR,
-      timeout: 120_000,
+      timeout: REPOSITORY_VALIDATION_TIMEOUT_MS,
     });
     yield* stopRepositoryProcesses(sandbox, `cleanup-${check.name}-processes`);
     validation.push(validationResult(check.name, check.command.display, result));

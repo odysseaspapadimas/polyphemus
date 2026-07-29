@@ -37,7 +37,8 @@ const TASK = process.env.POLYPHEMUS_TASK?.trim();
 const MODEL_PROVIDER = "opencode-go";
 const MODEL_ID = "kimi-k2.7-code";
 const MAX_COMMANDS = 12;
-const COMMAND_TIMEOUT_MS = 60_000;
+const FILE_OPERATION_TIMEOUT_MS = 60_000;
+const COMMAND_TIMEOUT_MS = 5 * 60_000;
 const RUN_TIMEOUT_MS = 8 * 60_000;
 const MAX_COMMAND_OUTPUT = 12_000;
 const REPOSITORY_EXECUTOR = "/usr/local/bin/polyphemus-repository-exec";
@@ -89,7 +90,7 @@ const runRepositoryFileOperation = async (
     stdin: "pipe",
     stdout: "pipe",
     stderr: "pipe",
-    timeout: COMMAND_TIMEOUT_MS,
+    timeout: FILE_OPERATION_TIMEOUT_MS,
     killSignal: "SIGKILL",
   });
   subprocess.stdin.write(input ?? new Uint8Array());
