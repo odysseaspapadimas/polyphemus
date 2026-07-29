@@ -2,11 +2,11 @@ import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import {
   PiActivityEventSchema,
-  SpikeCancelResultSchema,
-  SpikeFinalResultSchema,
-  SpikeStartResultSchema,
-  SpikeStatusResultSchema,
-} from "./spike.ts";
+  SandboxCancelResultSchema,
+  SandboxRunResultSchema,
+  SandboxRunStartResultSchema,
+  SandboxProcessStatusResultSchema,
+} from "./sandbox-run.ts";
 
 const RequiredText = Schema.Trim.check(Schema.isMinLength(1));
 
@@ -35,6 +35,12 @@ export const RepositoryRunHandleSchema = Schema.Struct({
 });
 export type RepositoryRunHandle = typeof RepositoryRunHandleSchema.Type;
 
+export const StartAdditionalRunRequestSchema = Schema.Struct({
+  taskId: RequiredText,
+  runRequest: RepositoryRunRequestSchema,
+});
+export type StartAdditionalRunRequest = typeof StartAdditionalRunRequestSchema.Type;
+
 export const SafeRunFailureSchema = Schema.Struct({
   code: RequiredText,
   message: RequiredText,
@@ -47,6 +53,7 @@ export const AgentRunSnapshotSchema = Schema.Struct({
   workflowId: Schema.NullOr(RequiredText),
   sandboxId: RequiredText,
   processId: RequiredText,
+  runRequest: Schema.optional(RepositoryRunRequestSchema),
   stage: RepositoryTaskStageSchema,
   activity: RequiredText,
   baseSha: Schema.NullOr(RequiredText),
@@ -64,6 +71,7 @@ export type AgentRunSnapshot = typeof AgentRunSnapshotSchema.Type;
 export const RepositoryTaskSnapshotSchema = Schema.Struct({
   version: Schema.Literal(1),
   taskId: RequiredText,
+  ownerId: Schema.optional(RequiredText),
   runRequest: RepositoryRunRequestSchema,
   agentRuns: Schema.Array(AgentRunSnapshotSchema),
   activeRunId: Schema.NullOr(RequiredText),
@@ -74,6 +82,7 @@ export type RepositoryTaskSnapshot = typeof RepositoryTaskSnapshotSchema.Type;
 
 export const CreateRepositoryTaskInputSchema = Schema.Struct({
   taskId: RequiredText,
+  ownerId: RequiredText,
   runId: RequiredText,
   sandboxId: RequiredText,
   processId: RequiredText,
@@ -81,6 +90,17 @@ export const CreateRepositoryTaskInputSchema = Schema.Struct({
   now: RequiredText,
 });
 export type CreateRepositoryTaskInput = typeof CreateRepositoryTaskInputSchema.Type;
+
+export const AddAgentRunInputSchema = Schema.Struct({
+  taskId: RequiredText,
+  ownerId: RequiredText,
+  runId: RequiredText,
+  sandboxId: RequiredText,
+  processId: RequiredText,
+  runRequest: RepositoryRunRequestSchema,
+  now: RequiredText,
+});
+export type AddAgentRunInput = typeof AddAgentRunInputSchema.Type;
 
 export const AttachWorkflowInputSchema = Schema.Struct({
   ...RepositoryRunHandleSchema.fields,
@@ -97,13 +117,13 @@ export const MarkRunStageInputSchema = Schema.Struct({
 
 export const RecordRunStartedInputSchema = Schema.Struct({
   ...RepositoryRunHandleSchema.fields,
-  started: SpikeStartResultSchema,
+  started: SandboxRunStartResultSchema,
   now: RequiredText,
 });
 
 export const RecordRunProgressInputSchema = Schema.Struct({
   ...RepositoryRunHandleSchema.fields,
-  status: SpikeStatusResultSchema,
+  status: SandboxProcessStatusResultSchema,
   now: RequiredText,
 });
 
@@ -126,7 +146,7 @@ export const FailRunInputSchema = Schema.Struct({
 export const CancelRunInputSchema = Schema.Struct({
   ...RepositoryRunHandleSchema.fields,
   artifactKey: RequiredText,
-  cancellation: SpikeCancelResultSchema,
+  cancellation: SandboxCancelResultSchema,
   now: RequiredText,
 });
 
@@ -144,7 +164,7 @@ export const CompletedRunArtifactSchema = Schema.Struct({
   createdAt: RequiredText,
   terminal: Schema.Struct({
     status: Schema.Literal("completed"),
-    result: SpikeFinalResultSchema,
+    result: SandboxRunResultSchema,
   }),
 });
 
@@ -172,7 +192,7 @@ export const CancelledRunArtifactSchema = Schema.Struct({
   createdAt: RequiredText,
   terminal: Schema.Struct({
     status: Schema.Literal("cancelled"),
-    cancellation: SpikeCancelResultSchema,
+    cancellation: SandboxCancelResultSchema,
   }),
 });
 
@@ -239,6 +259,10 @@ export const decodeRepositoryRunHandle = decode(
   RepositoryRunHandleSchema,
   "Invalid Agent Run handle",
 );
+export const decodeStartAdditionalRunRequest = decode(
+  StartAdditionalRunRequestSchema,
+  "Invalid additional Agent Run request",
+);
 export const decodeRepositoryTaskSnapshot = decode(
   RepositoryTaskSnapshotSchema,
   "Stored Repository Task is invalid",
@@ -257,12 +281,14 @@ export const createRepositoryTaskSnapshot = (
 ): RepositoryTaskSnapshot => ({
   version: 1,
   taskId: input.taskId,
+  ownerId: input.ownerId,
   runRequest: input.runRequest,
   agentRuns: [{
     runId: input.runId,
     workflowId: null,
     sandboxId: input.sandboxId,
     processId: input.processId,
+    runRequest: input.runRequest,
     stage: "submitted",
     activity: "Run Request accepted",
     baseSha: null,
@@ -279,6 +305,45 @@ export const createRepositoryTaskSnapshot = (
   createdAt: input.now,
   updatedAt: input.now,
 });
+
+const createAgentRunSnapshot = (
+  input: AddAgentRunInput,
+): AgentRunSnapshot => ({
+  runId: input.runId,
+  workflowId: null,
+  sandboxId: input.sandboxId,
+  processId: input.processId,
+  runRequest: input.runRequest,
+  stage: "submitted",
+  activity: "Agent Run accepted",
+  baseSha: null,
+  events: [],
+  artifactKey: null,
+  validated: null,
+  failure: null,
+  cleanup: null,
+  startedAt: input.now,
+  updatedAt: input.now,
+  completedAt: null,
+});
+
+export const addAgentRun = (
+  snapshot: RepositoryTaskSnapshot,
+  input: AddAgentRunInput,
+): RepositoryTaskSnapshot => ({
+  ...snapshot,
+  agentRuns: [...snapshot.agentRuns, createAgentRunSnapshot(input)],
+  activeRunId: input.runId,
+  updatedAt: input.now,
+});
+
+export const runRequestFor = (
+  snapshot: RepositoryTaskSnapshot,
+  runId: string,
+): RepositoryRunRequest | null => {
+  const run = snapshot.agentRuns.find((candidate) => candidate.runId === runId);
+  return run === undefined ? null : run.runRequest ?? snapshot.runRequest;
+};
 
 const updateRun = (
   snapshot: RepositoryTaskSnapshot,
@@ -325,7 +390,7 @@ export const markRunStage = (
 export const recordRunStarted = (
   snapshot: RepositoryTaskSnapshot,
   runId: string,
-  started: typeof SpikeStartResultSchema.Type,
+  started: typeof SandboxRunStartResultSchema.Type,
   now: string,
 ): RepositoryTaskSnapshot => updateRun(snapshot, runId, now, (run) =>
   isTerminalStage(run.stage) || run.stage === "cancelling"
@@ -340,7 +405,7 @@ export const recordRunStarted = (
       });
 
 export const stageFromStatus = (
-  status: typeof SpikeStatusResultSchema.Type,
+  status: typeof SandboxProcessStatusResultSchema.Type,
 ): RepositoryTaskStage => {
   const latest = status.events.at(-1);
   if (latest?.stage === "modifying" || latest?.stage === "command" || latest?.stage === "finishing") {
@@ -352,7 +417,7 @@ export const stageFromStatus = (
 export const recordRunProgress = (
   snapshot: RepositoryTaskSnapshot,
   runId: string,
-  status: typeof SpikeStatusResultSchema.Type,
+  status: typeof SandboxProcessStatusResultSchema.Type,
   now: string,
 ): RepositoryTaskSnapshot => updateRun(snapshot, runId, now, (run) =>
   isTerminalStage(run.stage) || run.stage === "cancelling"
@@ -422,7 +487,7 @@ export const cancelRun = (
   snapshot: RepositoryTaskSnapshot,
   runId: string,
   artifactKey: string,
-  cancellation: typeof SpikeCancelResultSchema.Type,
+  cancellation: typeof SandboxCancelResultSchema.Type,
   now: string,
 ): RepositoryTaskSnapshot => {
   if (snapshot.activeRunId !== runId) return snapshot;

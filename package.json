@@ -12,7 +12,7 @@
     "alchemy:plan": "bun alchemy plan",
     "alchemy:deploy": "bun alchemy deploy",
     "alchemy:destroy": "bun alchemy destroy",
-    "test:deployed": "bun test ./test/deployed/spike.integration.ts"
+    "test:deployed": "bun test ./test/deployed/edge.integration.ts"
   },
   "dependencies": {
     "@cloudflare/sandbox": "0.12.4",

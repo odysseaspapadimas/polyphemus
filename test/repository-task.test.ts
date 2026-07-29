@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
+  addAgentRun,
   cancelRun,
   completeRun,
   createRepositoryTaskSnapshot,
@@ -12,9 +13,10 @@ import {
 
 const created = createRepositoryTaskSnapshot({
   taskId: "task-1",
+  ownerId: "developer@example.com",
   runId: "run-1",
-  sandboxId: "spike-run-1",
-  processId: "pi-spike-run-1",
+  sandboxId: "sandbox-run-1",
+  processId: "pi-sandbox-run-1",
   runRequest: {
     repositoryUrl: "https://github.com/example/repository",
     task: "Fix one bounded defect",
@@ -35,8 +37,8 @@ describe("Repository Task transitions", () => {
       "2026-07-28T10:00:01.000Z",
     );
     const progressing = recordRunProgress(provisioning, "run-1", {
-      sandboxId: "spike-run-1",
-      processId: "pi-spike-run-1",
+      sandboxId: "sandbox-run-1",
+      processId: "pi-sandbox-run-1",
       status: "running",
       stderrExcerpt: "",
       events: [{
@@ -49,6 +51,34 @@ describe("Repository Task transitions", () => {
 
     expect(progressing.agentRuns[0]?.stage).toBe("modifying");
     expect(progressing.agentRuns[0]?.activity).toBe("Updating the parser");
+  });
+
+  test("appends a fresh Agent Run while preserving terminal history", () => {
+    const completed = completeRun(
+      created,
+      "run-1",
+      "repository-tasks/task-1/agent-runs/run-1/completed.json",
+      true,
+      "destroyed",
+      "2026-07-28T10:01:00.000Z",
+    );
+    const rerun = addAgentRun(completed, {
+      taskId: "task-1",
+      ownerId: "developer@example.com",
+      runId: "run-2",
+      sandboxId: "sandbox-run-2",
+      processId: "pi-sandbox-run-2",
+      runRequest: {
+        repositoryUrl: "https://github.com/example/repository",
+        task: "Retry with a narrower parser fix",
+      },
+      now: "2026-07-28T10:02:00.000Z",
+    });
+
+    expect(rerun.agentRuns).toHaveLength(2);
+    expect(rerun.agentRuns[0]?.artifactKey).toEndWith("completed.json");
+    expect(rerun.agentRuns[1]?.runRequest?.task).toBe("Retry with a narrower parser fix");
+    expect(rerun.activeRunId).toBe("run-2");
   });
 
   test("does not complete a Run after cancellation begins", () => {
@@ -87,8 +117,8 @@ describe("Repository Task transitions", () => {
       "run-1",
       "repository-tasks/task-1/agent-runs/run-1/cancelled.json",
       {
-        sandboxId: "spike-run-1",
-        processId: "pi-spike-run-1",
+        sandboxId: "sandbox-run-1",
+        processId: "pi-sandbox-run-1",
         status: "cancelled",
         events: [],
         cleanup: "destroyed",

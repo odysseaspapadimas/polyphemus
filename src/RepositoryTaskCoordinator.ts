@@ -2,6 +2,8 @@ import * as Cloudflare from "alchemy/Cloudflare";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import {
+  AddAgentRunInputSchema,
+  addAgentRun as addAgentRunSnapshot,
   AttachWorkflowInputSchema,
   attachWorkflow as attachWorkflowSnapshot,
   CancelRunInputSchema,
@@ -78,6 +80,35 @@ export default class RepositoryTaskCoordinator extends Cloudflare.DurableObject<
           }));
         }
         return yield* persist(createRepositoryTaskSnapshot(valid));
+      });
+
+      const addAgentRun = Effect.fn("RepositoryTaskCoordinator.addAgentRun")(function* (input: unknown) {
+        const valid = yield* decodeInput(AddAgentRunInputSchema, "Invalid Agent Run creation input", input);
+        const snapshot = yield* requireSnapshot();
+        if (snapshot.taskId !== valid.taskId) {
+          return yield* Effect.fail(new RepositoryTaskNotFound({ message: "Repository Task was not found" }));
+        }
+        if (snapshot.ownerId !== undefined && snapshot.ownerId !== valid.ownerId) {
+          return yield* Effect.fail(new RepositoryTaskNotFound({
+            message: "Repository Task was not found",
+          }));
+        }
+        if (snapshot.activeRunId !== null) {
+          return yield* Effect.fail(new RepositoryTaskConflict({
+            message: "Repository Task already has an active Agent Run",
+          }));
+        }
+        if (snapshot.runRequest.repositoryUrl !== valid.runRequest.repositoryUrl) {
+          return yield* Effect.fail(new RepositoryTaskConflict({
+            message: "An Agent Run cannot change its Repository Task repository",
+          }));
+        }
+        if (snapshot.agentRuns.some((run) => run.runId === valid.runId)) {
+          return yield* Effect.fail(new RepositoryTaskConflict({
+            message: "Agent Run already exists",
+          }));
+        }
+        return yield* persist(addAgentRunSnapshot(snapshot, valid));
       });
 
       const attachWorkflow = Effect.fn("RepositoryTaskCoordinator.attachWorkflow")(function* (input: unknown) {
@@ -174,6 +205,7 @@ export default class RepositoryTaskCoordinator extends Cloudflare.DurableObject<
       });
 
       return {
+        addAgentRun,
         attachWorkflow,
         cancel,
         complete,

@@ -219,24 +219,26 @@ const safeEnvironment = (): Record<string, string> => {
 let commandCount = 0;
 
 const commandParameters = Type.Object({
-  program: Type.Union([Type.Literal("bun"), Type.Literal("git")]),
+  program: Type.Union([Type.Literal("bun"), Type.Literal("npm"), Type.Literal("git")]),
   args: Type.Array(Type.String(), { maxItems: 16 }),
 });
 
 interface CommandDetails {
   readonly commandCount: number;
   readonly budget: number;
-  readonly program?: "bun" | "git";
+  readonly program?: "bun" | "npm" | "git";
   readonly args?: readonly string[];
   readonly exitCode?: number;
   readonly stdout?: string;
   readonly stderr?: string;
 }
 
-const commandAllowed = (program: "bun" | "git", args: readonly string[]): boolean => {
+const commandAllowed = (program: "bun" | "npm" | "git", args: readonly string[]): boolean => {
   if (args.some((arg) => /[\n\r\0]/.test(arg))) return false;
   const operation = args[0];
-  if (program === "bun") return operation === "install" || operation === "test" || operation === "run";
+  if (program === "bun" || program === "npm") {
+    return operation === "install" || operation === "test" || operation === "run";
+  }
   return operation === "status" || operation === "diff" || operation === "log" || operation === "show";
 };
 
@@ -246,7 +248,7 @@ const boundedCommand = defineTool<typeof commandParameters, CommandDetails>({
   description: "Run an allowed Bun or read-only Git command in the repository with a fixed timeout and bounded output.",
   promptSnippet: "Run Bun checks or read-only Git inspection commands",
   promptGuidelines: [
-    "Use bounded_command for dependency installation, tests, typechecking, and read-only Git inspection.",
+    "Use bounded_command for Bun or npm checks and read-only Git inspection.",
     "Do not attempt commits, branches, remote operations, deployment, or commands outside the repository.",
   ],
   parameters: commandParameters,
@@ -352,7 +354,7 @@ const emptyResourceLoader: ResourceLoader = {
   getPrompts: () => ({ prompts: [], diagnostics: [] }),
   getThemes: () => ({ themes: [], diagnostics: [] }),
   getAgentsFiles: () => ({ agentsFiles: [] }),
-  getSystemPrompt: () => `You are the repository agent inside an isolated Polyphemus feasibility run.
+  getSystemPrompt: () => `You are the repository agent inside an isolated Polyphemus Agent Run.
 Work only in the repository working directory. Solve the submitted task autonomously and keep the change narrowly scoped.
 Inspect relevant source and tests, make the smallest correct change, and use bounded_command for available checks.
 Do not modify .git, create commits or branches, contact remotes, deploy, or search the internet.
@@ -402,15 +404,27 @@ const completeResult = (
 
 const main = async (): Promise<void> => {
   if (!TASK) throw new Error("POLYPHEMUS_TASK is required");
-  const apiKey = process.env.OPENCODE_API_KEY;
-  if (!apiKey) throw new Error("OPENCODE_API_KEY is required");
+  const proxyUrl = process.env.POLYPHEMUS_MODEL_PROXY_URL;
+  const proxyToken = process.env.POLYPHEMUS_MODEL_PROXY_TOKEN;
+  if (!proxyUrl || !proxyToken) throw new Error("Scoped model proxy access is required");
+  const parsedProxyUrl = new URL(proxyUrl);
+  if (parsedProxyUrl.protocol !== "https:") throw new Error("Model proxy must use HTTPS");
 
+  const agentDir = "/tmp/polyphemus-agent";
+  const modelsPath = `${agentDir}/models.json`;
+  await mkdir(agentDir, { recursive: true });
+  await writeFile(modelsPath, JSON.stringify({
+    providers: {
+      [MODEL_PROVIDER]: { baseUrl: parsedProxyUrl.toString().replace(/\/$/, "") },
+    },
+  }));
   const modelRuntime = await ModelRuntime.create({
-    authPath: "/tmp/polyphemus-agent/auth.json",
-    modelsPath: "/tmp/polyphemus-agent/models.json",
+    authPath: `${agentDir}/auth.json`,
+    modelsPath,
   });
-  modelRuntime.setRuntimeApiKey(MODEL_PROVIDER, apiKey);
-  delete process.env.OPENCODE_API_KEY;
+  modelRuntime.setRuntimeApiKey(MODEL_PROVIDER, proxyToken);
+  delete process.env.POLYPHEMUS_MODEL_PROXY_TOKEN;
+  delete process.env.POLYPHEMUS_MODEL_PROXY_URL;
 
   const model = modelRuntime.getModel(MODEL_PROVIDER, MODEL_ID);
   if (!model) throw new Error(`Pi model unavailable: ${MODEL_PROVIDER}/${MODEL_ID}`);
@@ -421,7 +435,7 @@ const main = async (): Promise<void> => {
   });
   const { session } = await createAgentSession({
     cwd: REPOSITORY_DIR,
-    agentDir: "/tmp/polyphemus-agent",
+    agentDir,
     model,
     modelRuntime,
     thinkingLevel: "medium",

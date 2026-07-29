@@ -1,24 +1,24 @@
 import { expect, test } from "bun:test";
 import * as Schema from "effect/Schema";
 import {
-  SpikeCancelResultSchema,
-  SpikeFinalResultSchema,
-  SpikeStartResultSchema,
-  SpikeStatusResultSchema,
-  type SpikeStartResult,
-} from "../../src/domain/spike.ts";
+  SandboxCancelResultSchema,
+  SandboxRunResultSchema,
+  SandboxRunStartResultSchema,
+  SandboxProcessStatusResultSchema,
+  type SandboxRunStartResult,
+} from "../../src/domain/sandbox-run.ts";
 import {
-  SPIKE_FIXTURE_BASE_SHA,
-  SPIKE_FIXTURE_REPOSITORY,
-} from "../../src/spike-config.ts";
+  FIXTURE_BASE_SHA,
+  FIXTURE_REPOSITORY,
+} from "../../src/sandbox-config.ts";
 
 const workerUrl = (
-  process.env.SPIKE_WORKER_URL ??
-  "https://polyphemus-spike.odysseas-patra.workers.dev"
+  process.env.SANDBOX_WORKER_URL ??
+  "https://polyphemus-sandbox.odysseas-patra.workers.dev"
 ).replace(/\/$/, "");
-const token = process.env.SPIKE_API_TOKEN;
+const token = process.env.SANDBOX_API_TOKEN;
 
-if (!token) throw new Error("SPIKE_API_TOKEN is required for deployed tests");
+if (!token) throw new Error("SANDBOX_API_TOKEN is required for deployed tests");
 
 const post = async (path: string, body: unknown): Promise<unknown> => {
   const response = await fetch(`${workerUrl}${path}`, {
@@ -38,38 +38,38 @@ const post = async (path: string, body: unknown): Promise<unknown> => {
 };
 
 const runId = (kind: "happy" | "cancel"): string =>
-  `spike-${kind}-${Date.now().toString(36)}-${crypto.randomUUID().slice(0, 6)}`;
+  `sandbox-${kind}-${Date.now().toString(36)}-${crypto.randomUUID().slice(0, 6)}`;
 
 const start = async (sandboxId: string, task: string) =>
-  Schema.decodeUnknownSync(SpikeStartResultSchema)(await post("/spike/start", {
+  Schema.decodeUnknownSync(SandboxRunStartResultSchema)(await post("/sandbox-runs/start", {
     sandboxId,
-    repositoryUrl: SPIKE_FIXTURE_REPOSITORY,
-    expectedBaseSha: SPIKE_FIXTURE_BASE_SHA,
+    repositoryUrl: FIXTURE_REPOSITORY,
+    expectedBaseSha: FIXTURE_BASE_SHA,
     task,
   }));
 
-const cancelQuietly = async (run: SpikeStartResult | undefined): Promise<void> => {
+const cancelQuietly = async (run: SandboxRunStartResult | undefined): Promise<void> => {
   if (!run) return;
-  await post("/spike/cancel", {
+  await post("/sandbox-runs/cancel", {
     sandboxId: run.sandboxId,
     processId: run.processId,
   }).catch(() => undefined);
 };
 
 test.serial("deployed Sandbox runs Pi and independently validates its Patch", async () => {
-  let run: SpikeStartResult | undefined;
+  let run: SandboxRunStartResult | undefined;
   let destroyed = false;
   try {
     run = await start(
       runId("happy"),
       "Fix the failing mergeRanges behavior. Make the smallest correct change, run the repository checks, and finish with structured findings.",
     );
-    expect(run.baseSha).toBe(SPIKE_FIXTURE_BASE_SHA);
+    expect(run.baseSha).toBe(FIXTURE_BASE_SHA);
     expect(run.initialTestExitCode).not.toBe(0);
 
     for (let attempt = 0; attempt < 48; attempt += 1) {
-      const status = Schema.decodeUnknownSync(SpikeStatusResultSchema)(await post(
-        "/spike/status",
+      const status = Schema.decodeUnknownSync(SandboxProcessStatusResultSchema)(await post(
+        "/sandbox-runs/status",
         { sandboxId: run.sandboxId, processId: run.processId },
       ));
       if (status.status === "missing") {
@@ -79,13 +79,13 @@ test.serial("deployed Sandbox runs Pi and independently validates its Patch", as
       await Bun.sleep(15_000);
     }
 
-    const result = Schema.decodeUnknownSync(SpikeFinalResultSchema)(await post(
-      "/spike/finalize",
+    const result = Schema.decodeUnknownSync(SandboxRunResultSchema)(await post(
+      "/sandbox-runs/finalize",
       { sandboxId: run.sandboxId, processId: run.processId },
     ));
     destroyed = result.cleanup === "destroyed";
 
-    expect(result.repositoryUrl).toBe(SPIKE_FIXTURE_REPOSITORY);
+    expect(result.repositoryUrl).toBe(FIXTURE_REPOSITORY);
     expect(result.runRequest).toBe(result.pi.runRequest);
     expect(result.runAssumptions).toEqual(result.pi.assumptions);
     expect(result.pi.status).toBe("completed");
@@ -114,7 +114,7 @@ test.serial("deployed Sandbox runs Pi and independently validates its Patch", as
 }, 15 * 60_000);
 
 test.serial("deployed cancellation stops Pi and destroys its Sandbox", async () => {
-  let run: SpikeStartResult | undefined;
+  let run: SandboxRunStartResult | undefined;
   let destroyed = false;
   try {
     run = await start(
@@ -123,8 +123,8 @@ test.serial("deployed cancellation stops Pi and destroys its Sandbox", async () 
     );
     let observedActive = false;
     for (let attempt = 0; attempt < 15; attempt += 1) {
-      const status = Schema.decodeUnknownSync(SpikeStatusResultSchema)(await post(
-        "/spike/status",
+      const status = Schema.decodeUnknownSync(SandboxProcessStatusResultSchema)(await post(
+        "/sandbox-runs/status",
         { sandboxId: run.sandboxId, processId: run.processId },
       ));
       if (
@@ -141,8 +141,8 @@ test.serial("deployed cancellation stops Pi and destroys its Sandbox", async () 
     }
     expect(observedActive).toBe(true);
 
-    const result = Schema.decodeUnknownSync(SpikeCancelResultSchema)(await post(
-      "/spike/cancel",
+    const result = Schema.decodeUnknownSync(SandboxCancelResultSchema)(await post(
+      "/sandbox-runs/cancel",
       { sandboxId: run.sandboxId, processId: run.processId },
     ));
     destroyed = result.cleanup === "destroyed";

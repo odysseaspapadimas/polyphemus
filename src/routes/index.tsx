@@ -16,8 +16,11 @@ import {
 import { useEffect, useState } from "react";
 import {
   cancelRepositoryRun,
+  getCurrentUser,
   getRepositoryRunResult,
   getRepositoryRunStatus,
+  listRepositoryTasks,
+  startAdditionalRepositoryRun,
   startRepositoryRun,
   type RepositoryRunRequest,
 } from "../domain/run.functions.ts";
@@ -28,11 +31,11 @@ import {
   type RepositoryTaskSnapshot,
   type RunArtifact,
 } from "../domain/repository-task.ts";
-import type { SpikeFinalResult } from "../domain/spike.ts";
+import type { SandboxRunResult } from "../domain/sandbox-run.ts";
 import {
-  SPIKE_FIXTURE_REPOSITORY,
-  SPIKE_FIXTURE_TASK,
-} from "../spike-config.ts";
+  FIXTURE_REPOSITORY,
+  FIXTURE_TASK,
+} from "../sandbox-config.ts";
 import * as Schema from "effect/Schema";
 
 export const Route = createFileRoute("/")({ component: Home });
@@ -67,25 +70,45 @@ const isActiveRun = (run: AgentRunSnapshot | undefined): boolean =>
 function Home() {
   const queryClient = useQueryClient();
   const [request, setRequest] = useState<RepositoryRunRequest>({
-    repositoryUrl: SPIKE_FIXTURE_REPOSITORY,
-    task: SPIKE_FIXTURE_TASK,
+    repositoryUrl: FIXTURE_REPOSITORY,
+    task: FIXTURE_TASK,
   });
   const [handle, setHandle] = useState<RepositoryRunHandle | null>(null);
+  const [hydratedTaskId, setHydratedTaskId] = useState<string | null>(null);
 
   useEffect(() => setHandle(handleFromLocation()), []);
 
+  const identityQuery = useQuery({
+    queryKey: ["current-user"],
+    queryFn: () => getCurrentUser(),
+    staleTime: Infinity,
+  });
+
+  const taskIndexQuery = useQuery({
+    queryKey: ["repository-task-index"],
+    queryFn: () => listRepositoryTasks(),
+    refetchInterval: 10_000,
+  });
+
   const statusQuery = useQuery({
-    queryKey: ["repository-task", handle?.taskId, handle?.runId],
+    queryKey: ["repository-task", handle?.taskId],
     queryFn: () => getRepositoryRunStatus({ data: handle! }),
     enabled: handle !== null,
-    refetchInterval: (query) => {
-      const run = query.state.data?.agentRuns.find((candidate) => candidate.runId === handle?.runId);
-      return isActiveRun(run) ? 3_000 : false;
-    },
+    refetchInterval: (query) => query.state.data?.activeRunId === null ? false : 3_000,
     refetchIntervalInBackground: true,
   });
 
-  const currentRun = statusQuery.data?.agentRuns.find((run) => run.runId === handle?.runId);
+  const taskSnapshot = statusQuery.data;
+  const currentRun = taskSnapshot?.agentRuns.find((run) => run.runId === handle?.runId);
+  const activeRun = taskSnapshot?.agentRuns.find((run) => run.runId === taskSnapshot.activeRunId);
+
+  useEffect(() => {
+    if (taskSnapshot === undefined || hydratedTaskId === taskSnapshot.taskId) return;
+    const selectedRequest = currentRun?.runRequest ?? taskSnapshot.runRequest;
+    setRequest(selectedRequest);
+    setHydratedTaskId(taskSnapshot.taskId);
+  }, [currentRun?.runRequest, hydratedTaskId, taskSnapshot]);
+
   const resultQuery = useQuery({
     queryKey: ["run-result", handle?.taskId, handle?.runId, currentRun?.artifactKey],
     queryFn: () => getRepositoryRunResult({ data: handle! }),
@@ -95,27 +118,42 @@ function Home() {
 
   const startMutation = useMutation({
     mutationFn: (input: RepositoryRunRequest) => startRepositoryRun({ data: input }),
-    onSuccess: (nextHandle) => {
+    onSuccess: async (nextHandle) => {
       setHandle(nextHandle);
       setHandleLocation(nextHandle);
+      await queryClient.invalidateQueries({ queryKey: ["repository-task-index"] });
+    },
+  });
+
+  const rerunMutation = useMutation({
+    mutationFn: (input: { taskId: string; runRequest: RepositoryRunRequest }) =>
+      startAdditionalRepositoryRun({ data: input }),
+    onSuccess: async (nextHandle) => {
+      setHandle(nextHandle);
+      setHandleLocation(nextHandle);
+      await Promise.all([
+        queryClient.refetchQueries({ queryKey: ["repository-task", nextHandle.taskId] }),
+        queryClient.invalidateQueries({ queryKey: ["repository-task-index"] }),
+      ]);
     },
   });
 
   const cancelMutation = useMutation({
     mutationFn: (runHandle: RepositoryRunHandle) => cancelRepositoryRun({ data: runHandle }),
-    onSuccess: (snapshot) => {
+    onSuccess: async (snapshot) => {
       if (handle !== null) {
         queryClient.setQueryData(
-          ["repository-task", handle.taskId, handle.runId],
+          ["repository-task", handle.taskId],
           snapshot,
         );
       }
+      await queryClient.invalidateQueries({ queryKey: ["repository-task-index"] });
     },
   });
 
-  const busy = startMutation.isPending || isActiveRun(currentRun);
-  const shellError = startMutation.error ?? statusQuery.error ??
-    resultQuery.error ?? cancelMutation.error;
+  const busy = startMutation.isPending || rerunMutation.isPending || isActiveRun(activeRun);
+  const shellError = startMutation.error ?? rerunMutation.error ?? statusQuery.error ??
+    taskIndexQuery.error ?? identityQuery.error ?? resultQuery.error ?? cancelMutation.error;
   const artifact = resultQuery.data;
 
   return (
@@ -126,7 +164,7 @@ function Home() {
           <span>POLYPHEMUS</span>
         </a>
         <div className="header-promise">One issue. One branch. One focused agent.</div>
-        <div className="system-status"><span /> Sandbox online</div>
+        <div className="system-status"><span /> {identityQuery.data?.userId ?? "Private preview"}</div>
       </header>
 
       <section className="hero">
@@ -142,17 +180,50 @@ function Home() {
         <RunRequestPanel
           request={request}
           busy={busy}
-          error={startMutation.error}
+          existingTask={taskSnapshot}
+          error={startMutation.error ?? rerunMutation.error}
           onChange={setRequest}
-          onSubmit={() => startMutation.mutate(request)}
+          onSubmit={() => taskSnapshot === undefined
+            ? startMutation.mutate(request)
+            : rerunMutation.mutate({
+                taskId: taskSnapshot.taskId,
+                runRequest: { ...request, repositoryUrl: taskSnapshot.runRequest.repositoryUrl },
+              })}
         />
         <RunProgressPanel
-          run={currentRun}
-          starting={startMutation.isPending}
+          run={activeRun ?? currentRun}
+          starting={startMutation.isPending || rerunMutation.isPending}
           cancelling={cancelMutation.isPending}
-          onCancel={() => handle && cancelMutation.mutate(handle)}
+          onCancel={() => taskSnapshot?.activeRunId && cancelMutation.mutate({
+            taskId: taskSnapshot.taskId,
+            runId: taskSnapshot.activeRunId,
+          })}
         />
       </div>
+
+      <RepositoryTaskIndex
+        tasks={taskIndexQuery.data ?? []}
+        selectedTaskId={handle?.taskId ?? null}
+        onSelect={(task) => {
+          const run = task.agentRuns.at(-1);
+          if (run === undefined) return;
+          const nextHandle = { taskId: task.taskId, runId: run.runId };
+          setHandle(nextHandle);
+          setHandleLocation(nextHandle);
+        }}
+      />
+
+      {taskSnapshot ? (
+        <RunHistory
+          snapshot={taskSnapshot}
+          selectedRunId={handle?.runId ?? null}
+          onSelect={(runId) => {
+            const nextHandle = { taskId: taskSnapshot.taskId, runId };
+            setHandle(nextHandle);
+            setHandleLocation(nextHandle);
+          }}
+        />
+      ) : null}
 
       {shellError ? <div className="global-error" role="alert">{errorMessage(shellError)}</div> : null}
       {artifact?.terminal.status === "completed" ? <RunResultPanel result={artifact.terminal.result} /> : null}
@@ -160,7 +231,7 @@ function Home() {
       {artifact?.terminal.status === "cancelled" ? <TerminalRunPanel artifact={artifact} /> : null}
 
       <footer className="app-footer">
-        <span>Controlled feasibility fixture</span>
+        <span>Public repository preview</span>
         <span>Public repository · No GitHub writes · Independent validation</span>
       </footer>
     </main>
@@ -170,6 +241,7 @@ function Home() {
 function RunRequestPanel(props: Readonly<{
   request: RepositoryRunRequest;
   busy: boolean;
+  existingTask: RepositoryTaskSnapshot | undefined;
   error: unknown;
   onChange: (request: RepositoryRunRequest) => void;
   onSubmit: () => void;
@@ -184,15 +256,16 @@ function RunRequestPanel(props: Readonly<{
       }}
     >
       <div className="panel-heading">
-        <div><p className="eyebrow">Run Request</p><h2>Focus the agent</h2></div>
-        <span className="fixture-badge">Fixture mode</span>
+        <div><p className="eyebrow">Run Request</p><h2>{props.existingTask ? "Refine the next attempt" : "Focus the agent"}</h2></div>
+        <span className="preview-badge">Public preview</span>
       </div>
 
       <label>
         Public GitHub repository
         <div className="input-shell"><GitBranch size={17} />
           <input
-            value={props.request.repositoryUrl}
+            value={props.existingTask?.runRequest.repositoryUrl ?? props.request.repositoryUrl}
+            disabled={props.existingTask !== undefined}
             onChange={(event) => props.onChange({
               ...props.request,
               repositoryUrl: event.target.value,
@@ -201,7 +274,7 @@ function RunRequestPanel(props: Readonly<{
             spellCheck={false}
           />
         </div>
-        <span className="field-note">This first shell is intentionally restricted to the proven fixture.</span>
+        <span className="field-note">{props.existingTask ? "All Agent Runs in this Repository Task use the same repository." : "Public GitHub repositories with Bun or npm lockfiles are supported."}</span>
       </label>
 
       <label>
@@ -215,13 +288,89 @@ function RunRequestPanel(props: Readonly<{
 
       <button className="primary-command" type="submit" disabled={!valid || props.busy}>
         {props.busy ? <LoaderCircle className="spin" size={18} /> : <Play size={18} />}
-        {props.busy ? "Agent Run active" : "Start Agent Run"}
+        {props.busy ? "Agent Run active" : props.existingTask ? "Run again" : "Start Agent Run"}
       </button>
       <p className="authorization-note">
         Submitting authorizes one isolated Agent Run. It cannot write to GitHub.
       </p>
       {props.error ? <p className="inline-error">{errorMessage(props.error)}</p> : null}
     </form>
+  );
+}
+
+function RepositoryTaskIndex(props: Readonly<{
+  tasks: readonly RepositoryTaskSnapshot[];
+  selectedTaskId: string | null;
+  onSelect: (task: RepositoryTaskSnapshot) => void;
+}>) {
+  return (
+    <section className="panel task-index" aria-label="Repository Task index">
+      <div className="panel-heading">
+        <div><p className="eyebrow">Private workspace</p><h2>Repository Tasks</h2></div>
+        <span className="idle-badge">{props.tasks.length} task{props.tasks.length === 1 ? "" : "s"}</span>
+      </div>
+      {props.tasks.length === 0 ? (
+        <p className="task-index-empty">Your submitted Repository Tasks will appear here.</p>
+      ) : (
+        <ol>
+          {props.tasks.map((task) => {
+            const latest = task.agentRuns.at(-1);
+            return (
+              <li key={task.taskId}>
+                <button
+                  type="button"
+                  data-selected={task.taskId === props.selectedTaskId ? "true" : "false"}
+                  onClick={() => props.onSelect(task)}
+                >
+                  <span className="task-index-repository">{repositoryLabel(task.runRequest.repositoryUrl)}</span>
+                  <strong>{latest?.runRequest?.task ?? task.runRequest.task}</strong>
+                  <span className="history-status" data-stage={latest?.stage ?? "submitted"}>
+                    {humanize(latest?.stage ?? "submitted")}
+                  </span>
+                  <small>{task.agentRuns.length} attempt{task.agentRuns.length === 1 ? "" : "s"}</small>
+                  <time>{formatTime(task.updatedAt)}</time>
+                </button>
+              </li>
+            );
+          })}
+        </ol>
+      )}
+    </section>
+  );
+}
+
+function RunHistory(props: Readonly<{
+  snapshot: RepositoryTaskSnapshot;
+  selectedRunId: string | null;
+  onSelect: (runId: string) => void;
+}>) {
+  return (
+    <section className="panel run-history" aria-label="Agent Run history">
+      <div className="panel-heading">
+        <div><p className="eyebrow">Repository Task</p><h2>Agent Run history</h2></div>
+        <span className="idle-badge">{props.snapshot.agentRuns.length} attempt{props.snapshot.agentRuns.length === 1 ? "" : "s"}</span>
+      </div>
+      <ol>
+        {[...props.snapshot.agentRuns].reverse().map((run, reversedIndex) => {
+          const attempt = props.snapshot.agentRuns.length - reversedIndex;
+          const runRequest = run.runRequest ?? props.snapshot.runRequest;
+          return (
+            <li key={run.runId}>
+              <button
+                type="button"
+                data-selected={run.runId === props.selectedRunId ? "true" : "false"}
+                onClick={() => props.onSelect(run.runId)}
+              >
+                <span className="history-attempt">Attempt {attempt}</span>
+                <span className="history-objective">{runRequest.task}</span>
+                <span className="history-status" data-stage={run.stage}>{humanize(run.stage)}</span>
+                <time>{formatTime(run.startedAt)}</time>
+              </button>
+            </li>
+          );
+        })}
+      </ol>
+    </section>
   );
 }
 
@@ -329,7 +478,7 @@ function TerminalRunPanel({ artifact }: Readonly<{ artifact: RunArtifact }>) {
   );
 }
 
-function RunResultPanel({ result }: Readonly<{ result: SpikeFinalResult }>) {
+function RunResultPanel({ result }: Readonly<{ result: SandboxRunResult }>) {
   const passed = result.validation.filter((check) => check.passed).length;
   return (
     <section className="result-section" aria-label="Agent Run result">
@@ -397,6 +546,14 @@ const activityDetail = (run: AgentRunSnapshot | undefined, starting: boolean): s
   if (event?.tool) return `${humanize(event.tool)} · durable Workflow`;
   if (run?.workflowId) return `Workflow ${run.workflowId}`;
   return "Waiting for the durable Workflow to begin.";
+};
+
+const repositoryLabel = (repositoryUrl: string): string => {
+  try {
+    return new URL(repositoryUrl).pathname.replace(/^\//, "");
+  } catch {
+    return repositoryUrl;
+  }
 };
 
 const humanize = (value: string): string =>

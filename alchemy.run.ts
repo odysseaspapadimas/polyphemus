@@ -1,14 +1,17 @@
 import * as Alchemy from "alchemy";
 import * as Cloudflare from "alchemy/Cloudflare";
 import * as Effect from "effect/Effect";
-import ControlWorker from "./src/ControlWorker.ts";
+import RepositoryAgentBackend from "./src/RepositoryAgentBackend.ts";
+import { ModelProxyWorker } from "./src/ModelProxyWorker.ts";
+import { PreviewAccess } from "./src/PreviewAccess.ts";
+import { RepositoryTaskIndexDatabase } from "./src/RepositoryTaskIndexDatabase.ts";
 import { RunArtifactsBucket } from "./src/RunArtifactsBucket.ts";
-import { SpikeWorker } from "./src/SpikeWorker.ts";
+import { SandboxRuntimeWorker } from "./src/SandboxRuntimeWorker.ts";
 
-export { SpikeWorker };
+export { RepositoryAgentBackend };
 
 export const Website = Effect.gen(function* () {
-  const controlWorker = yield* ControlWorker;
+  const repositoryAgentBackend = yield* RepositoryAgentBackend;
 
   return yield* Cloudflare.Website.Vite("Website", {
     name: "polyphemus",
@@ -19,7 +22,7 @@ export const Website = Effect.gen(function* () {
       flags: ["nodejs_compat"],
     },
     env: {
-      CONTROL_WORKER: controlWorker,
+      REPOSITORY_AGENT_BACKEND: repositoryAgentBackend,
     },
   });
 });
@@ -33,14 +36,20 @@ export default Alchemy.Stack(
     state: Alchemy.localState(),
   },
   Effect.gen(function* () {
-    const spikeWorker = yield* SpikeWorker;
-    const controlWorker = yield* ControlWorker;
+    const modelProxy = yield* ModelProxyWorker;
+    const repositoryAgentBackend = yield* RepositoryAgentBackend;
+    const sandboxRuntime = yield* SandboxRuntimeWorker;
     const runArtifacts = yield* RunArtifactsBucket;
+    const taskIndex = yield* RepositoryTaskIndexDatabase;
     const website = yield* Website;
+    const access = yield* PreviewAccess;
     return {
-      controlWorkerName: controlWorker.workerName,
+      accessApplicationId: access.applicationId,
+      repositoryAgentBackendName: repositoryAgentBackend.workerName,
+      sandboxRuntimeWorkerName: sandboxRuntime.workerName,
       runArtifactsBucketName: runArtifacts.bucketName,
-      spikeWorkerUrl: spikeWorker.url,
+      repositoryTaskIndexName: taskIndex.databaseName,
+      modelProxyUrl: modelProxy.url,
       websiteUrl: website.url,
     };
   }),

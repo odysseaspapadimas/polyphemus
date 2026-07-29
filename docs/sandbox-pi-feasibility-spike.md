@@ -85,7 +85,7 @@ create Sandbox
 2. Built a Pi runner with an empty resource loader, in-memory settings/session, repository-rooted filesystem tools, a bounded Bun/read-only-Git command tool, normalized JSONL activity, structured completion, a 12-command limit, 60-second command timeout, and eight-minute run timeout.
 3. Added an async Worker exporting the official `Sandbox` class with authenticated start, status, finalize, and cancel boundaries.
 4. Added post-Pi independent validation for visible tests, typechecking, held-out tests, and `git diff --check`.
-5. Deployed a custom image based on `docker.io/cloudflare/sandbox:0.12.4` through Alchemy and added repeatable deployed integration tests in `test/deployed/spike.integration.ts`.
+5. Deployed a custom image based on `docker.io/cloudflare/sandbox:0.12.4` through Alchemy and added repeatable deployed integration tests in `test/historical/sandbox-pi-feasibility.integration.ts`.
 6. Proved both the happy and deliberately interrupted paths against the deployed Worker.
 
 The deployed evidence closes the feasibility gate. Workflow, coordinator, persistence, and UI work may now proceed in the documented MVP order.

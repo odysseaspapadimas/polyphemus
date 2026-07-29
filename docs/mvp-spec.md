@@ -67,7 +67,7 @@ An Agent Run must not:
 - continue beyond its configured budgets;
 - expose raw reasoning, secrets, or unrestricted command output.
 
-The controlled feasibility fixture may use a limited model credential directly. Arbitrary public repositories require a credential proxy so the Sandbox never receives the real provider credential.
+The Sandbox never receives the real model-provider credential. It receives only a short-lived, Sandbox-scoped grant for the Polyphemus model proxy; the proxy authenticates the grant, fixes the allowed provider/model and upstream route, and adds the real credential outside the Sandbox.
 
 ## Progress
 
@@ -139,24 +139,37 @@ An Agent Run that returns a Patch but fails required validation is **completed, 
 
 ## Architecture direction
 
-- **Control Worker:** private Run Request, status, cancellation, and Run Result boundary.
+- **Repository Agent backend:** one private product boundary implemented by two service-bound Workers.
+- **Repository Agent Worker:** Effect-native Repository Task commands, status, cancellation, Run Results, coordinator Durable Objects, and Workflows; no public route.
+- **Sandbox Runtime Worker:** native official Sandbox SDK and Container binding behind an authenticated service binding; no public route.
 - **Repository Task coordinator Durable Object:** authoritative per-task Agent Run snapshot and active-run invariant.
 - **Cloudflare Workflow:** durable Agent Run stages, retries, budgets, cancellation, persistence, and cleanup.
 - **Official Cloudflare Sandbox SDK:** isolated repository filesystem, processes, Pi runtime, and validation environment.
+- **Model proxy Worker:** exchanges a short-lived Sandbox-scoped grant for one fixed model endpoint without exposing the provider credential.
 - **Pi SDK:** adaptive repository investigation and bounded modification.
 - **Effect v4:** schemas, services, typed failures, streams, and lifecycle boundaries.
 - **Alchemy v2:** Worker, Workflow, Sandbox Container binding and image, storage, and deployed tests.
 - **R2:** durable Run Results and Patch evidence.
+- **D1:** user-scoped Repository Task discovery projection; Durable Objects remain authoritative for current task state.
+- **Cloudflare Access:** single-user preview authentication at the Website edge through an explicit email one-time PIN login method and allow policy.
 
 A conversational Cloudflare Agent workspace remains a later product layer, not a prerequisite for proving the submit-and-observe path.
 
-## Controlled-fixture product shell
+## Deployed product shell
 
-The deployed shell exercises the proven fixture through the intended user journey: submit, observe normalized progress, cancel, and inspect the Patch, findings, budgets, and independent validation evidence. A TanStack Start server-function boundary calls a private Control Worker through a Cloudflare service binding, so the browser never receives internal credentials.
+The deployed shell exercises the intended user journey against supported public GitHub repositories: submit, observe normalized progress, cancel, and inspect the Patch, findings, budgets, and independent validation evidence. Cloudflare Access protects the Website, and a TanStack Start server-function boundary forwards the authenticated identity to the private Repository Agent Worker through a service binding, so the browser never receives internal credentials.
 
-The Control Worker creates one Repository Task coordinator Durable Object and one Cloudflare Workflow for each submitted Run Request. The coordinator is authoritative for the current Repository Task and Agent Run snapshot; the Workflow owns provisioning, observation, independent validation, terminal persistence, and cleanup; R2 owns immutable completed, failed, and cancelled Run Result artifacts. The browser retains only the opaque task and run identifiers in the URL, allowing a refresh to reconstruct state from the control plane rather than browser storage.
+The Repository Agent backend is one product boundary with two private deployment units. The Effect-native Repository Agent Worker creates one Repository Task coordinator Durable Object and one Cloudflare Workflow for each submitted Run Request. It calls the native Sandbox Runtime Worker through an authenticated service binding; that Worker alone hosts the official Sandbox Durable Object and Container binding. Neither Worker has a public route. This division follows the supported Alchemy hosting models without exposing an additional product API.
 
-This remains a controlled-fixture vertical slice. Arbitrary repositories, additional Agent Runs within an existing Repository Task, a searchable task index, credential proxying, and cross-device task discovery remain subsequent MVP work.
+The coordinator is authoritative for the current Repository Task and Agent Run snapshot; the Workflow owns provisioning, observation, independent validation, terminal persistence, and cleanup; R2 owns immutable completed, failed, and cancelled Run Result artifacts. A user-scoped D1 projection makes tasks discoverable across devices, while selected task state is reconstructed from its coordinator rather than browser storage.
+
+The shell supports multiple fresh Agent Runs within one Repository Task while enforcing at most one active attempt. Every attempt resolves its own base revision, keeps its own R2 Run Result, and remains selectable in the task's run history. Workflow creation uses deterministic run identifiers so an interrupted start can recover the existing instance rather than create a duplicate.
+
+Repository URLs are canonicalized and restricted to public HTTPS `github.com/{owner}/{repository}` roots. The current compatibility policy accepts Bun and npm lockfiles, performs a bounded frozen install, and derives independent test, typecheck, and lint checks from package scripts. Unsupported package managers and repositories without a substantive recognized check complete without a validated claim rather than receiving one by default.
+
+The deployed arbitrary-repository proof cloned `khalidx/typescript-cli-starter`, ran Pi through the credential proxy, changed two TypeScript files, independently passed `npm test` and `git diff --check`, persisted the Run Result, and destroyed the Sandbox. The Sandbox container uses the `basic` tier because real dependency installation and validation exceeded the `lite` tier's memory; the preview permits bounded rollout overlap and independent Repository Tasks while each Repository Task still enforces one active Agent Run.
+
+The private preview uses an explicit Cloudflare Access email one-time PIN identity provider, restricts the application to that login method, auto-redirects to it, and allows only the configured preview email. A user-scoped Repository Task index provides cross-device discovery. Product-grade multi-user identity and GitHub publication remain subsequent work.
 
 ## Acceptance criteria
 
@@ -172,4 +185,8 @@ The MVP is accepted when a user can submit a bounded objective for a public Type
 8. preserves a structured Run Result and destroys the Sandbox;
 9. performs no GitHub writes and exposes no repository credentials.
 
-The full MVP foundation begins only after the deployed Sandbox + Pi feasibility spike passes its documented gate.
+The original deployed Sandbox + Pi gate has passed. The current preview has subsequently proven durable multi-run orchestration, credential proxying, arbitrary supported public repository execution, and an independently validated Patch path. The historical gate and evidence remain in `docs/sandbox-pi-feasibility-spike.md`.
+
+## Approved next increment
+
+The implementation sequence for verified Access identity, typed Repository Agent RPC, removal of the stateless Control DO, recoverable WebSocket progress, and autonomous draft pull-request publication is locked in `docs/plans/001-pull-request-publication.md`. Those capabilities extend this proven shell and do not retroactively change the exclusions or acceptance record of this MVP specification.

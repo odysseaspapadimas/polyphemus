@@ -3,13 +3,13 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import {
   decodePiActivityEvent,
-  decodeSpikeStartRequest,
-  InvalidSpikeRequest,
-} from "../src/domain/spike.ts";
+  decodeSandboxRunStartRequest,
+  InvalidSandboxRequest,
+} from "../src/domain/sandbox-run.ts";
 
-describe("spike contracts", () => {
+describe("sandbox run contracts", () => {
   test("decodes a valid start request", async () => {
-    const result = await Effect.runPromise(decodeSpikeStartRequest({
+    const result = await Effect.runPromise(decodeSandboxRunStartRequest({
       sandboxId: "run-1",
       repositoryUrl: "https://github.com/example/fixture",
       task: "Fix the interval merge defect",
@@ -19,7 +19,7 @@ describe("spike contracts", () => {
   });
 
   test("rejects an empty task with a typed boundary error", async () => {
-    const exit = await Effect.runPromiseExit(decodeSpikeStartRequest({
+    const exit = await Effect.runPromiseExit(decodeSandboxRunStartRequest({
       sandboxId: "run-1",
       repositoryUrl: "https://github.com/example/fixture",
       task: " ",
@@ -27,7 +27,7 @@ describe("spike contracts", () => {
 
     expect(exit._tag).toBe("Failure");
     if (exit._tag === "Failure") {
-      expect(String(exit.cause)).toContain(InvalidSpikeRequest.name);
+      expect(String(exit.cause)).toContain(InvalidSandboxRequest.name);
     }
   });
 

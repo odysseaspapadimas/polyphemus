@@ -32,6 +32,14 @@ _Avoid_: Agent answer, final message, artifact
 A Patch that passes every required independent check for its Agent Run.
 _Avoid_: Successful run, agent-approved patch
 
+**Pull Request Publication**:
+The autonomous contribution that turns one Validated Patch into an agent-owned branch and draft pull request against the Patch's source repository.
+_Avoid_: Deployment, merge, agent write access
+
+**Agent Branch**:
+A repository branch owned and updated only by Polyphemus for one Pull Request Publication.
+_Avoid_: User branch, working tree, Patch
+
 ## Relationships
 
 - A **Repository Task** has one or more **Agent Runs** over its lifetime
@@ -42,6 +50,9 @@ _Avoid_: Successful run, agent-approved patch
 - An **Agent Run** produces exactly one **Run Result**, including safe partial evidence when execution cannot finish
 - An **Agent Run** produces at most one **Patch**
 - A **Patch** becomes a **Validated Patch** only after every required independent check passes
+- A **Validated Patch** may produce at most one **Pull Request Publication**
+- A **Pull Request Publication** owns exactly one **Agent Branch** and at most one draft pull request
+- A **Pull Request Publication** does not authorize Polyphemus to merge its draft pull request
 
 ## Example dialogue
 
@@ -54,3 +65,4 @@ _Avoid_: Successful run, agent-approved patch
 - The original MVP required a plan approval before execution — resolved for the prototype: a **Run Request** itself authorizes the first **Agent Run**.
 - “clarification” could mean any missing detail or only a true blocker — resolved: an **Agent Run** proceeds with documented **Run Assumptions** unless execution is impossible or unsafe.
 - “failed run” was used for both execution failure and failing Patch checks — resolved: an **Agent Run** may complete with a non-validated **Patch**; execution failure means no usable result could be completed.
+- “agent write access” blurred local editing and remote contribution — resolved: an **Agent Run** writes only its isolated working tree; a **Pull Request Publication** contributes a Validated Patch through an Agent Branch.

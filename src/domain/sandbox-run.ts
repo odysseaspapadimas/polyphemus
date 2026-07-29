@@ -3,21 +3,21 @@ import * as Schema from "effect/Schema";
 
 const RequiredText = Schema.Trim.check(Schema.isMinLength(1));
 
-export const SpikeStartRequestSchema = Schema.Struct({
+export const SandboxRunStartRequestSchema = Schema.Struct({
   sandboxId: RequiredText,
   repositoryUrl: RequiredText,
   task: RequiredText,
   expectedBaseSha: Schema.optional(RequiredText),
 });
-export type SpikeStartRequest = typeof SpikeStartRequestSchema.Type;
+export type SandboxRunStartRequest = typeof SandboxRunStartRequestSchema.Type;
 
-export const SpikeStartResultSchema = Schema.Struct({
+export const SandboxRunStartResultSchema = Schema.Struct({
   sandboxId: RequiredText,
   processId: RequiredText,
   baseSha: RequiredText,
   initialTestExitCode: Schema.Number,
 });
-export type SpikeStartResult = typeof SpikeStartResultSchema.Type;
+export type SandboxRunStartResult = typeof SandboxRunStartResultSchema.Type;
 
 export const PiActivityStageSchema = Schema.Literals([
   "starting",
@@ -68,7 +68,7 @@ export const PiRunResultSchema = Schema.Struct({
 });
 export type PiRunResult = typeof PiRunResultSchema.Type;
 
-export const SpikeProcessStatusSchema = Schema.Literals([
+export const SandboxProcessStatusSchema = Schema.Literals([
   "starting",
   "running",
   "completed",
@@ -77,22 +77,22 @@ export const SpikeProcessStatusSchema = Schema.Literals([
   "error",
   "missing",
 ] as const);
-export type SpikeProcessStatus = typeof SpikeProcessStatusSchema.Type;
+export type SandboxProcessStatus = typeof SandboxProcessStatusSchema.Type;
 
-export const SpikeStatusRequestSchema = Schema.Struct({
+export const SandboxProcessRequestSchema = Schema.Struct({
   sandboxId: RequiredText,
   processId: RequiredText,
 });
-export type SpikeStatusRequest = typeof SpikeStatusRequestSchema.Type;
+export type SandboxProcessRequest = typeof SandboxProcessRequestSchema.Type;
 
-export const SpikeStatusResultSchema = Schema.Struct({
+export const SandboxProcessStatusResultSchema = Schema.Struct({
   sandboxId: RequiredText,
   processId: RequiredText,
-  status: SpikeProcessStatusSchema,
+  status: SandboxProcessStatusSchema,
   events: Schema.Array(PiActivityEventSchema),
   stderrExcerpt: Schema.String,
 });
-export type SpikeStatusResult = typeof SpikeStatusResultSchema.Type;
+export type SandboxProcessStatusResult = typeof SandboxProcessStatusResultSchema.Type;
 
 export const ValidationResultSchema = Schema.Struct({
   name: RequiredText,
@@ -105,10 +105,10 @@ export const ValidationResultSchema = Schema.Struct({
 });
 export type ValidationResult = typeof ValidationResultSchema.Type;
 
-export const SpikeFinalizeRequestSchema = SpikeStatusRequestSchema;
-export type SpikeFinalizeRequest = SpikeStatusRequest;
+export const SandboxFinalizeRequestSchema = SandboxProcessRequestSchema;
+export type SandboxFinalizeRequest = SandboxProcessRequest;
 
-export const SpikeFinalResultSchema = Schema.Struct({
+export const SandboxRunResultSchema = Schema.Struct({
   version: Schema.Literal(1),
   sandboxId: RequiredText,
   processId: RequiredText,
@@ -124,24 +124,24 @@ export const SpikeFinalResultSchema = Schema.Struct({
   validated: Schema.Boolean,
   cleanup: Schema.Literals(["destroyed", "failed"] as const),
 });
-export type SpikeFinalResult = typeof SpikeFinalResultSchema.Type;
+export type SandboxRunResult = typeof SandboxRunResultSchema.Type;
 
-export const SpikeCancelResultSchema = Schema.Struct({
+export const SandboxCancelResultSchema = Schema.Struct({
   sandboxId: RequiredText,
   processId: RequiredText,
   status: Schema.Literal("cancelled"),
   events: Schema.Array(PiActivityEventSchema),
   cleanup: Schema.Literals(["destroyed", "failed"] as const),
 });
-export type SpikeCancelResult = typeof SpikeCancelResultSchema.Type;
+export type SandboxCancelResult = typeof SandboxCancelResultSchema.Type;
 
-export class InvalidSpikeRequest extends Schema.TaggedErrorClass<InvalidSpikeRequest>()(
-  "InvalidSpikeRequest",
+export class InvalidSandboxRequest extends Schema.TaggedErrorClass<InvalidSandboxRequest>()(
+  "InvalidSandboxRequest",
   { message: Schema.String, cause: Schema.optional(Schema.Defect()) },
 ) {}
 
-export class SpikeOperationFailed extends Schema.TaggedErrorClass<SpikeOperationFailed>()(
-  "SpikeOperationFailed",
+export class SandboxOperationFailed extends Schema.TaggedErrorClass<SandboxOperationFailed>()(
+  "SandboxOperationFailed",
   {
     operation: Schema.String,
     message: Schema.String,
@@ -149,7 +149,7 @@ export class SpikeOperationFailed extends Schema.TaggedErrorClass<SpikeOperation
   },
 ) {
   static fromUnknown(operation: string, cause: unknown) {
-    return new SpikeOperationFailed({
+    return new SandboxOperationFailed({
       operation,
       message: cause instanceof Error ? cause.message : String(cause),
       cause,
@@ -157,19 +157,19 @@ export class SpikeOperationFailed extends Schema.TaggedErrorClass<SpikeOperation
   }
 }
 
-export const decodeSpikeStartRequest = (input: unknown) =>
-  Schema.decodeUnknownEffect(SpikeStartRequestSchema)(input).pipe(
-    Effect.mapError((cause) => new InvalidSpikeRequest({ message: "Invalid spike start request", cause })),
+export const decodeSandboxRunStartRequest = (input: unknown) =>
+  Schema.decodeUnknownEffect(SandboxRunStartRequestSchema)(input).pipe(
+    Effect.mapError((cause) => new InvalidSandboxRequest({ message: "Invalid Sandbox Run start request", cause })),
   );
 
-export const decodeSpikeStatusRequest = (input: unknown) =>
-  Schema.decodeUnknownEffect(SpikeStatusRequestSchema)(input).pipe(
-    Effect.mapError((cause) => new InvalidSpikeRequest({ message: "Invalid spike status request", cause })),
+export const decodeSandboxProcessRequest = (input: unknown) =>
+  Schema.decodeUnknownEffect(SandboxProcessRequestSchema)(input).pipe(
+    Effect.mapError((cause) => new InvalidSandboxRequest({ message: "Invalid Sandbox process request", cause })),
   );
 
 export const decodePiRunResult = (input: unknown) =>
   Schema.decodeUnknownEffect(PiRunResultSchema)(input).pipe(
-    Effect.mapError((cause) => SpikeOperationFailed.fromUnknown("decode-pi-result", cause)),
+    Effect.mapError((cause) => SandboxOperationFailed.fromUnknown("decode-pi-result", cause)),
   );
 
 export const decodePiActivityEvent = Schema.decodeUnknownOption(PiActivityEventSchema);

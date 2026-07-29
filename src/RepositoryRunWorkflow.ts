@@ -2,7 +2,7 @@ import * as Cloudflare from "alchemy/Cloudflare";
 import * as Config from "effect/Config";
 import * as Effect from "effect/Effect";
 import { RunArtifactsBucket } from "./RunArtifactsBucket.ts";
-import { SpikeWorker } from "./SpikeWorker.ts";
+import { SandboxRuntimeWorker } from "./SandboxRuntimeWorker.ts";
 import {
   decodeWorkflowInput,
   type RepositoryRunWorkflowResult,
@@ -10,8 +10,8 @@ import {
   type RunArtifact,
   type SafeRunFailure,
 } from "./domain/repository-task.ts";
-import type { PiActivityEvent, SpikeCancelResult, SpikeStatusResult } from "./domain/spike.ts";
-import { makeSpikeWorkerClient } from "./domain/spike-client.ts";
+import type { PiActivityEvent, SandboxCancelResult, SandboxProcessStatusResult } from "./domain/sandbox-run.ts";
+import { makeRepositoryAgentClient } from "./domain/repository-agent-client.ts";
 import RepositoryTaskCoordinator from "./RepositoryTaskCoordinator.ts";
 
 const MAX_STATUS_POLLS = 110;
@@ -42,10 +42,10 @@ const failedArtifactKey = (taskId: string, runId: string): string =>
 const makeRepositoryRunWorkflow = Effect.gen(function* () {
   const taskCoordinators = yield* RepositoryTaskCoordinator;
   const bucket = yield* Cloudflare.R2.ReadWriteBucket(RunArtifactsBucket);
-  const spikeResource = yield* SpikeWorker;
-  const fetchSpike = yield* Cloudflare.Workers.Fetch(spikeResource);
-  const spikeToken = yield* Config.redacted("SPIKE_API_TOKEN");
-  const spike = makeSpikeWorkerClient(fetchSpike, spikeToken);
+  const sandboxRuntimeResource = yield* SandboxRuntimeWorker;
+  const fetchSandboxRuntime = yield* Cloudflare.Workers.Fetch(sandboxRuntimeResource);
+  const sandboxToken = yield* Config.redacted("SANDBOX_API_TOKEN").pipe(Effect.orDie);
+  const sandboxClient = makeRepositoryAgentClient(fetchSandboxRuntime, sandboxToken);
 
   return Effect.fn("RepositoryRunWorkflow.run")(function* (unknownInput: unknown) {
     const input = yield* decodeWorkflowInput(unknownInput).pipe(Effect.orDie);
@@ -61,7 +61,7 @@ const makeRepositoryRunWorkflow = Effect.gen(function* () {
       Effect.gen(function* () {
         const cancellation = yield* Cloudflare.Workflows.task(
           "cleanup-failed-agent-run",
-          capture(spike.cancel(processHandle)),
+          capture(sandboxClient.cancel(processHandle)),
         );
         const cleanup = cancellation.ok ? cancellation.value.cleanup : null;
         const safeEvents = cancellation.ok ? cancellation.value.events : events;
@@ -122,7 +122,7 @@ const makeRepositoryRunWorkflow = Effect.gen(function* () {
 
     const started = yield* Cloudflare.Workflows.task(
       "start-sandbox-agent",
-      capture(spike.start({
+      capture(sandboxClient.start({
         sandboxId: input.sandboxId,
         repositoryUrl: input.runRequest.repositoryUrl,
         task: input.runRequest.task,
@@ -141,11 +141,11 @@ const makeRepositoryRunWorkflow = Effect.gen(function* () {
       }).pipe(Effect.orDie),
     );
 
-    let lastStatus: SpikeStatusResult | null = null;
+    let lastStatus: SandboxProcessStatusResult | null = null;
     for (let poll = 0; poll < MAX_STATUS_POLLS; poll += 1) {
       const observed = yield* Cloudflare.Workflows.task(
         `observe-agent-${String(poll + 1).padStart(3, "0")}`,
-        capture(spike.status(processHandle)),
+        capture(sandboxClient.status(processHandle)),
       );
       if (!observed.ok) {
         return yield* persistFailure(
@@ -197,7 +197,7 @@ const makeRepositoryRunWorkflow = Effect.gen(function* () {
 
     const finalized = yield* Cloudflare.Workflows.task(
       "finalize-and-validate-run",
-      capture(spike.finalize(processHandle)),
+      capture(sandboxClient.finalize(processHandle)),
     );
     if (!finalized.ok) {
       return yield* persistFailure("validating", finalized.message, lastStatus.events);
