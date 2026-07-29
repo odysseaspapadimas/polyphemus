@@ -170,6 +170,16 @@ button:disabled { cursor: not-allowed; opacity: .42; }
 .prose-panel ul { color: #a2a9ae; font-size: .73rem; line-height: 1.65; margin: 14px 0 0; padding-left: 1.05rem; }
 .prose-panel li { margin: 7px 0; }
 
+.publication-panel { align-items: center; border-color: #3c563f; display: grid; gap: 16px; grid-template-columns: auto minmax(0, 1fr) auto; margin-top: 18px; }
+.publication-panel[data-status="failed"] { border-color: #604027; }
+.publication-icon { align-items: center; background: #173425; border-radius: 50%; color: var(--green); display: flex; height: 46px; justify-content: center; width: 46px; }
+.publication-panel[data-status="failed"] .publication-icon { background: #3a2020; color: var(--red); }
+.publication-panel h2 { font-size: .95rem; margin: 5px 0 7px; }
+.publication-panel p:not(.eyebrow) { color: #858f96; font-size: .66rem; line-height: 1.55; margin: 0; }
+.publication-panel code { color: #b7c0c5; font-family: "DM Mono", monospace; font-size: .62rem; }
+.publication-link { align-items: center; background: #173425; border: 1px solid #315c43; border-radius: 6px; color: #9ed8b3; display: flex; font-family: "DM Mono", monospace; font-size: .62rem; gap: 7px; padding: 9px 11px; text-decoration: none; }
+.publication-link:hover { border-color: #4d8b67; color: #c2ebd0; }
+
 .app-footer { border-top: 1px solid var(--line); color: #626a70; display: flex; font-family: "DM Mono", monospace; font-size: .57rem; justify-content: space-between; margin-top: 28px; padding-top: 18px; text-transform: uppercase; }
 .spin { animation: spin 1s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
@@ -180,6 +190,8 @@ button:disabled { cursor: not-allowed; opacity: .42; }
   .header-promise { display: none; }
   .hero { padding-top: 48px; }
   .workspace-grid, .result-grid, .lower-result-grid { grid-template-columns: 1fr; }
+  .publication-panel { align-items: start; grid-template-columns: auto 1fr; }
+  .publication-link, .publication-panel > .idle-badge { grid-column: 2; justify-self: start; }
   .task-index button { grid-template-columns: 125px minmax(0, 1fr) auto auto; }
   .task-index time { display: none; }
   .run-history button { grid-template-columns: 75px minmax(0, 1fr) auto; }

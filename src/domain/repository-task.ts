@@ -1,6 +1,15 @@
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import {
+  CompletePullRequestPublicationInputSchema,
+  FailPullRequestPublicationInputSchema,
+  MarkPullRequestPublicationInputSchema,
+  OptionalPullRequestPublicationSchema,
+  StartPullRequestPublicationInputSchema,
+  type PullRequestPublicationFailure,
+  type PullRequestPublicationEvidence,
+} from "./pull-request-publication.ts";
+import {
   PiActivityEventSchema,
   SandboxCancelResultSchema,
   SandboxRunResultSchema,
@@ -9,6 +18,10 @@ import {
 } from "./sandbox-run.ts";
 
 const RequiredText = Schema.Trim.check(Schema.isMinLength(1));
+const Revision = Schema.Number.check(
+  Schema.isInt(),
+  Schema.isGreaterThanOrEqualTo(0),
+);
 
 export const RepositoryTaskStageSchema = Schema.Literals([
   "submitted",
@@ -62,6 +75,10 @@ export const AgentRunSnapshotSchema = Schema.Struct({
   validated: Schema.NullOr(Schema.Boolean),
   failure: Schema.NullOr(SafeRunFailureSchema),
   cleanup: Schema.NullOr(Schema.Literals(["destroyed", "failed"] as const)),
+  publicationEligible: Schema.Boolean.pipe(
+    Schema.withDecodingDefaultKey(Effect.succeed(false)),
+  ),
+  publication: OptionalPullRequestPublicationSchema,
   startedAt: RequiredText,
   updatedAt: RequiredText,
   completedAt: Schema.NullOr(RequiredText),
@@ -70,6 +87,9 @@ export type AgentRunSnapshot = typeof AgentRunSnapshotSchema.Type;
 
 export const RepositoryTaskSnapshotSchema = Schema.Struct({
   version: Schema.Literal(1),
+  revision: Revision.pipe(
+    Schema.withDecodingDefaultKey(Effect.succeed(0)),
+  ),
   taskId: RequiredText,
   ownerId: Schema.optional(RequiredText),
   runRequest: RepositoryRunRequestSchema,
@@ -131,6 +151,9 @@ export const CompleteRunInputSchema = Schema.Struct({
   ...RepositoryRunHandleSchema.fields,
   artifactKey: RequiredText,
   validated: Schema.Boolean,
+  publicationEligible: Schema.Boolean.pipe(
+    Schema.withDecodingDefaultKey(Effect.succeed(false)),
+  ),
   cleanup: Schema.Literals(["destroyed", "failed"] as const),
   now: RequiredText,
 });
@@ -280,6 +303,7 @@ export const createRepositoryTaskSnapshot = (
   input: CreateRepositoryTaskInput,
 ): RepositoryTaskSnapshot => ({
   version: 1,
+  revision: 0,
   taskId: input.taskId,
   ownerId: input.ownerId,
   runRequest: input.runRequest,
@@ -297,6 +321,8 @@ export const createRepositoryTaskSnapshot = (
     validated: null,
     failure: null,
     cleanup: null,
+    publicationEligible: false,
+    publication: null,
     startedAt: input.now,
     updatedAt: input.now,
     completedAt: null,
@@ -322,6 +348,8 @@ const createAgentRunSnapshot = (
   validated: null,
   failure: null,
   cleanup: null,
+  publicationEligible: false,
+  publication: null,
   startedAt: input.now,
   updatedAt: input.now,
   completedAt: null,
@@ -364,6 +392,11 @@ export const isTerminalStage = (stage: RepositoryTaskStage): boolean =>
 export const isActiveRun = (snapshot: RepositoryTaskSnapshot, runId: string): boolean =>
   snapshot.activeRunId === runId && snapshot.agentRuns.some((run) =>
     run.runId === runId && !isTerminalStage(run.stage) && run.stage !== "cancelling");
+
+export const hasActivePullRequestPublication = (
+  snapshot: RepositoryTaskSnapshot,
+): boolean => snapshot.agentRuns.some((run) => run.publication !== null &&
+  run.publication.status !== "complete" && run.publication.status !== "failed");
 
 export const attachWorkflow = (
   snapshot: RepositoryTaskSnapshot,
@@ -444,6 +477,7 @@ export const completeRun = (
   runId: string,
   artifactKey: string,
   validated: boolean,
+  publicationEligible: boolean,
   cleanup: "destroyed" | "failed",
   now: string,
 ): RepositoryTaskSnapshot => {
@@ -454,6 +488,7 @@ export const completeRun = (
     activity: validated ? "Validated Patch ready" : "Run Result ready for review",
     artifactKey,
     validated,
+    publicationEligible,
     cleanup,
     updatedAt: now,
     completedAt: now,
@@ -503,3 +538,120 @@ export const cancelRun = (
   }));
   return { ...next, activeRunId: null };
 };
+
+export const canStartPullRequestPublication = (
+  snapshot: RepositoryTaskSnapshot,
+  input: typeof StartPullRequestPublicationInputSchema.Type,
+): boolean => {
+  const run = snapshot.agentRuns.find((candidate) => candidate.runId === input.runId);
+  return snapshot.taskId === input.taskId && run !== undefined &&
+    input.publicationId === `publication-${input.runId}` &&
+    input.branch === `polyphemus/${input.taskId}` &&
+    run.stage === "complete" && run.validated === true &&
+    run.publicationEligible && run.artifactKey === input.patchArtifactKey && run.baseSha === input.baseSha &&
+    run.publication === null;
+};
+
+export const startPullRequestPublication = (
+  snapshot: RepositoryTaskSnapshot,
+  input: typeof StartPullRequestPublicationInputSchema.Type,
+): RepositoryTaskSnapshot => updateRun(snapshot, input.runId, input.now, (run) =>
+  run.publication !== null
+    ? run
+    : {
+        ...run,
+        publication: {
+          version: 1,
+          publicationId: input.publicationId,
+          sourceRunId: input.runId,
+          patchArtifactKey: input.patchArtifactKey,
+          publicationArtifactKey: null,
+          baseSha: input.baseSha,
+          branch: input.branch,
+          status: "pending",
+          activity: "Validated Patch queued for draft pull-request publication",
+          evidence: null,
+          failure: null,
+          createdAt: input.now,
+          updatedAt: input.now,
+          completedAt: null,
+        },
+      });
+
+export const markPullRequestPublication = (
+  snapshot: RepositoryTaskSnapshot,
+  input: typeof MarkPullRequestPublicationInputSchema.Type,
+): RepositoryTaskSnapshot => updateRun(snapshot, input.runId, input.now, (run) => {
+  const publication = run.publication;
+  if (publication === null || publication.publicationId !== input.publicationId ||
+      publication.status === "complete" || publication.status === "failed") {
+    return run;
+  }
+  const rank = { pending: 0, preparing: 1, publishing: 2 } as const;
+  if (rank[input.status] < rank[publication.status as keyof typeof rank]) return run;
+  return {
+    ...run,
+    publication: {
+      ...publication,
+      status: input.status,
+      activity: input.activity,
+      updatedAt: input.now,
+    },
+  };
+});
+
+export const completePullRequestPublication = (
+  snapshot: RepositoryTaskSnapshot,
+  runId: string,
+  publicationId: string,
+  publicationArtifactKey: string,
+  evidence: PullRequestPublicationEvidence,
+  now: string,
+): RepositoryTaskSnapshot => updateRun(snapshot, runId, now, (run) => {
+  const publication = run.publication;
+  if (publication === null || publication.publicationId !== publicationId ||
+      publication.status === "complete" || publication.status === "failed") {
+    return run;
+  }
+  return {
+    ...run,
+    publication: {
+      ...publication,
+      publicationArtifactKey,
+      status: "complete",
+      activity: "Draft pull request published",
+      evidence,
+      failure: null,
+      updatedAt: now,
+      completedAt: now,
+    },
+  };
+});
+
+export const failPullRequestPublication = (
+  snapshot: RepositoryTaskSnapshot,
+  runId: string,
+  publicationId: string,
+  publicationArtifactKey: string | null,
+  failure: PullRequestPublicationFailure,
+  now: string,
+): RepositoryTaskSnapshot => updateRun(snapshot, runId, now, (run) => {
+  const publication = run.publication;
+  if (publication === null || publication.publicationId !== publicationId ||
+      publication.status === "complete" || publication.status === "failed") {
+    return run;
+  }
+  return {
+    ...run,
+    publication: {
+      ...publication,
+      publicationArtifactKey,
+      status: "failed",
+      activity: "Draft pull-request publication failed safely",
+      evidence: null,
+      failure,
+      updatedAt: now,
+      completedAt: now,
+    },
+  };
+});

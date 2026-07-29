@@ -1,17 +1,27 @@
 import { createServerFn } from "@tanstack/react-start";
 import { getRequestHeader } from "@tanstack/react-start/server";
+import { toRpcAsync } from "alchemy/Cloudflare";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
+import type { RepositoryAgentBackend } from "../RepositoryAgentBackend.ts";
+import { accessIdentityFor } from "../AccessIdentity.ts";
 import { env } from "../env.ts";
-import { decodeAccessIdentity, ProductIdentitySchema } from "./product-identity.ts";
+import {
+  CancelRepositoryRunResultSchema,
+  CreateRepositoryTaskResultSchema,
+  GetRepositoryTaskResultSchema,
+  GetRunArtifactResultSchema,
+  ListRepositoryTasksResultSchema,
+  RepositoryAgentFailureTagSchema,
+  StartAdditionalRepositoryRunResultSchema,
+} from "./repository-agent-rpc.ts";
+import { ProductIdentitySchema } from "./product-identity.ts";
 import {
   decodeRepositoryRunHandle,
   decodeRepositoryRunRequest,
   RepositoryRunHandleSchema,
   RepositoryRunRequestSchema,
   StartAdditionalRunRequestSchema,
-  RepositoryTaskSnapshotSchema,
-  RunArtifactSchema,
   type RepositoryRunRequest,
 } from "./repository-task.ts";
 
@@ -26,158 +36,160 @@ export class ProductShellRequestFailed extends Schema.TaggedErrorClass<ProductSh
   },
 ) {}
 
-type BackendPath =
-  | "/repository-tasks"
-  | "/repository-tasks/runs"
-  | "/repository-tasks/index"
-  | "/repository-tasks/status"
-  | "/repository-tasks/result"
-  | "/repository-tasks/cancel";
+export class ProductShellAuthenticationFailed extends Schema.TaggedErrorClass<ProductShellAuthenticationFailed>()(
+  "ProductShellAuthenticationFailed",
+  { message: Schema.String },
+) {}
 
-const workerErrorMessage = (value: unknown, status: number): string => {
-  if (typeof value === "object" && value !== null && "message" in value) {
-    return String(value.message);
-  }
-  return `Repository Agent backend returned HTTP ${status}`;
+export class RepositoryAgentDomainFailure extends Schema.TaggedErrorClass<RepositoryAgentDomainFailure>()(
+  "RepositoryAgentDomainFailure",
+  {
+    failureTag: RepositoryAgentFailureTagSchema,
+    operation: Schema.String,
+    message: Schema.String,
+  },
+) {}
+
+type ProductShellFailure =
+  | ProductShellRequestFailed
+  | ProductShellAuthenticationFailed
+  | RepositoryAgentDomainFailure;
+
+const requireAccessIdentity = () => {
+  const RequiredText = Schema.Trim.check(Schema.isMinLength(1));
+  const verifier = accessIdentityFor({
+    issuer: Schema.decodeUnknownSync(RequiredText)(env.ACCESS_ISSUER),
+    audience: Schema.decodeUnknownSync(RequiredText)(env.ACCESS_AUDIENCE),
+  });
+  return verifier.verify(getRequestHeader("cf-access-jwt-assertion")).pipe(
+    Effect.mapError((error) => new ProductShellAuthenticationFailed({
+      message: error.message,
+    })),
+  );
 };
 
-const requireAccessIdentity = () => Effect.gen(function* () {
-  const assertion = getRequestHeader("cf-access-jwt-assertion");
-  if (assertion === undefined || assertion.trim().length === 0) {
-    return yield* Effect.fail(new ProductShellRequestFailed({
-      operation: "access-identity",
-      message: "Cloudflare Access authentication is required",
-    }));
-  }
-  return yield* decodeAccessIdentity(
-    getRequestHeader("cf-access-authenticated-user-email"),
-  ).pipe(Effect.mapError((cause) => new ProductShellRequestFailed({
-    operation: "access-identity",
-    message: cause.message,
-    cause,
-  })));
-});
-
-const postRepositoryAgentBackend = (path: BackendPath, body: unknown) => Effect.gen(function* () {
-  const identity = yield* requireAccessIdentity();
-  const response = yield* Effect.tryPromise({
-    try: () => env.REPOSITORY_AGENT_BACKEND.fetch(new Request(`https://repository-agent.internal${path}`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Polyphemus-User-Id": identity.userId,
-      },
-      body: JSON.stringify(body),
+const decodeResponse = <A, I>(
+  schema: Schema.Codec<A, I, never>,
+  operation: string,
+) => (value: unknown): Effect.Effect<A, ProductShellRequestFailed> =>
+  Schema.decodeUnknownEffect(schema)(value).pipe(
+    Effect.mapError(() => new ProductShellRequestFailed({
+      operation,
+      message: "Repository Agent RPC returned data outside its contract",
     })),
+  );
+
+const repositoryAgentRpc = () =>
+  toRpcAsync<RepositoryAgentBackend>(env.REPOSITORY_AGENT_BACKEND);
+
+const callRepositoryAgent = <A, I>(
+  operation: string,
+  resultSchema: Schema.Codec<
+    { readonly ok: true; readonly value: A } | {
+      readonly ok: false;
+      readonly error: {
+        readonly _tag: typeof RepositoryAgentFailureTagSchema.Type;
+        readonly message: string;
+        readonly operation?: string;
+      };
+    },
+    I,
+    never
+  >,
+  invoke: (
+    backend: ReturnType<typeof repositoryAgentRpc>,
+    principal: typeof ProductIdentitySchema.Type,
+  ) => Promise<unknown>,
+): Effect.Effect<A, ProductShellFailure> => Effect.gen(function* () {
+  const principal = yield* requireAccessIdentity();
+  const unknownResult = yield* Effect.tryPromise({
+    try: () => invoke(repositoryAgentRpc(), principal),
     catch: (cause) => new ProductShellRequestFailed({
-      operation: path,
+      operation,
       message: "Could not reach the Repository Agent backend",
       cause,
     }),
   });
-  const value = yield* Effect.tryPromise({
-    try: () => response.json() as Promise<unknown>,
-    catch: (cause) => new ProductShellRequestFailed({
-      operation: path,
-      message: "Repository Agent backend returned invalid JSON",
-      cause,
-    }),
-  });
-  if (!response.ok) {
-    return yield* Effect.fail(new ProductShellRequestFailed({
-      operation: path,
-      message: workerErrorMessage(value, response.status),
+  const result = yield* decodeResponse(resultSchema, operation)(unknownResult);
+  if (!result.ok) {
+    return yield* Effect.fail(new RepositoryAgentDomainFailure({
+      failureTag: result.error._tag,
+      operation: result.error.operation ?? operation,
+      message: result.error.message,
     }));
   }
-  return value;
+  return result.value;
 });
 
-const toServerError = (error: ProductShellRequestFailed): Error => new Error(error.message);
-
-const decodeResponse = <A, I>(
-  schema: Schema.Codec<A, I, never>,
-  invalidMessage: string,
-) => (value: unknown) => Schema.decodeUnknownEffect(schema)(value).pipe(
-  Effect.mapError(() => new Error(invalidMessage)),
-);
+const toServerError = (error: ProductShellFailure): Error => new Error(error.message);
 
 export const getCurrentUser = createServerFn({ method: "GET" })
   .handler(() => Effect.runPromise(
     requireAccessIdentity().pipe(
-      Effect.mapError(toServerError),
-      Effect.flatMap(decodeResponse(
-        ProductIdentitySchema,
-        "Access returned an invalid product identity",
+      Effect.flatMap((identity) => Schema.decodeUnknownEffect(ProductIdentitySchema)(identity)),
+      Effect.mapError((error) => new Error(
+        "message" in error ? String(error.message) : "Access returned an invalid product identity",
       )),
     ),
   ));
 
 export const listRepositoryTasks = createServerFn({ method: "GET" })
   .handler(() => Effect.runPromise(
-    postRepositoryAgentBackend("/repository-tasks/index", {}).pipe(
-      Effect.mapError(toServerError),
-      Effect.flatMap(decodeResponse(
-        Schema.Array(RepositoryTaskSnapshotSchema),
-        "Repository Agent backend returned an invalid Repository Task index",
-      )),
-    ),
+    callRepositoryAgent(
+      "listRepositoryTasks",
+      ListRepositoryTasksResultSchema,
+      (backend, principal) => backend.listRepositoryTasks({ principal }),
+    ).pipe(Effect.mapError(toServerError)),
   ));
 
 export const startRepositoryRun = createServerFn({ method: "POST" })
   .validator((input: unknown) => Schema.decodeUnknownSync(RepositoryRunRequestSchema)(input))
   .handler(({ data }) => Effect.runPromise(
-    postRepositoryAgentBackend("/repository-tasks", data).pipe(
-      Effect.mapError(toServerError),
-      Effect.flatMap(decodeResponse(
-        RepositoryRunHandleSchema,
-        "Repository Agent backend returned an invalid Repository Task handle",
-      )),
-    ),
+    callRepositoryAgent(
+      "createRepositoryTask",
+      CreateRepositoryTaskResultSchema,
+      (backend, principal) => backend.createRepositoryTask({ principal, request: data }),
+    ).pipe(Effect.mapError(toServerError)),
   ));
 
 export const startAdditionalRepositoryRun = createServerFn({ method: "POST" })
   .validator((input: unknown) => Schema.decodeUnknownSync(StartAdditionalRunRequestSchema)(input))
   .handler(({ data }) => Effect.runPromise(
-    postRepositoryAgentBackend("/repository-tasks/runs", data).pipe(
-      Effect.mapError(toServerError),
-      Effect.flatMap(decodeResponse(
-        RepositoryRunHandleSchema,
-        "Repository Agent backend returned an invalid additional Agent Run handle",
-      )),
-    ),
+    callRepositoryAgent(
+      "startAdditionalRepositoryRun",
+      StartAdditionalRepositoryRunResultSchema,
+      (backend, principal) => backend.startAdditionalRepositoryRun({ principal, request: data }),
+    ).pipe(Effect.mapError(toServerError)),
   ));
 
 export const getRepositoryRunStatus = createServerFn({ method: "POST" })
   .validator((input: unknown) => Schema.decodeUnknownSync(RepositoryRunHandleSchema)(input))
   .handler(({ data }) => Effect.runPromise(
-    postRepositoryAgentBackend("/repository-tasks/status", data).pipe(
-      Effect.mapError(toServerError),
-      Effect.flatMap(decodeResponse(
-        RepositoryTaskSnapshotSchema,
-        "Repository Agent backend returned an invalid Repository Task snapshot",
-      )),
-    ),
+    callRepositoryAgent(
+      "getRepositoryTask",
+      GetRepositoryTaskResultSchema,
+      (backend, principal) => backend.getRepositoryTask({ principal, handle: data }),
+    ).pipe(Effect.mapError(toServerError)),
   ));
 
 export const getRepositoryRunResult = createServerFn({ method: "POST" })
   .validator((input: unknown) => Schema.decodeUnknownSync(RepositoryRunHandleSchema)(input))
   .handler(({ data }) => Effect.runPromise(
-    postRepositoryAgentBackend("/repository-tasks/result", data).pipe(
-      Effect.mapError(toServerError),
-      Effect.flatMap(decodeResponse(RunArtifactSchema, "Repository Agent backend returned an invalid Run Result")),
-    ),
+    callRepositoryAgent(
+      "getRunArtifact",
+      GetRunArtifactResultSchema,
+      (backend, principal) => backend.getRunArtifact({ principal, handle: data }),
+    ).pipe(Effect.mapError(toServerError)),
   ));
 
 export const cancelRepositoryRun = createServerFn({ method: "POST" })
   .validator((input: unknown) => Schema.decodeUnknownSync(RepositoryRunHandleSchema)(input))
   .handler(({ data }) => Effect.runPromise(
-    postRepositoryAgentBackend("/repository-tasks/cancel", data).pipe(
-      Effect.mapError(toServerError),
-      Effect.flatMap(decodeResponse(
-        RepositoryTaskSnapshotSchema,
-        "Repository Agent backend returned an invalid cancelled Repository Task",
-      )),
-    ),
+    callRepositoryAgent(
+      "cancelRepositoryRun",
+      CancelRepositoryRunResultSchema,
+      (backend, principal) => backend.cancelRepositoryRun({ principal, handle: data }),
+    ).pipe(Effect.mapError(toServerError)),
   ));
 
 // Export effectful decoders for non-React boundaries and integration tests.

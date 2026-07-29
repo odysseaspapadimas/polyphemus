@@ -4,6 +4,7 @@ import * as Effect from "effect/Effect";
 export const PREVIEW_ACCESS_EMAIL = "odysseas.patra@gmail.com";
 export const PREVIEW_ACCESS_DOMAIN = "polyphemus.odysseas-patra.workers.dev";
 export const PREVIEW_ACCESS_AUTH_DOMAIN = "odysseas-dev.cloudflareaccess.com";
+export const PREVIEW_ACCESS_ISSUER = `https://${PREVIEW_ACCESS_AUTH_DOMAIN}`;
 
 export const PreviewAccess = Effect.gen(function* () {
   yield* Cloudflare.Access.Organization("PreviewAccessOrganization", {

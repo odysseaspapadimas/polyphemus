@@ -2,13 +2,18 @@ import { describe, expect, test } from "bun:test";
 import {
   addAgentRun,
   cancelRun,
+  canStartPullRequestPublication,
+  completePullRequestPublication,
   completeRun,
   createRepositoryTaskSnapshot,
   failRun,
+  hasActivePullRequestPublication,
   isActiveRun,
+  markPullRequestPublication,
   markRunStage,
   recordRunProgress,
   requestRunCancellation,
+  startPullRequestPublication,
 } from "../src/domain/repository-task.ts";
 
 const created = createRepositoryTaskSnapshot({
@@ -59,6 +64,7 @@ describe("Repository Task transitions", () => {
       "run-1",
       "repository-tasks/task-1/agent-runs/run-1/completed.json",
       true,
+      false,
       "destroyed",
       "2026-07-28T10:01:00.000Z",
     );
@@ -92,6 +98,7 @@ describe("Repository Task transitions", () => {
       "run-1",
       "repository-tasks/task-1/agent-runs/run-1/completed.json",
       true,
+      false,
       "destroyed",
       "2026-07-28T10:00:04.000Z",
     );
@@ -129,5 +136,70 @@ describe("Repository Task transitions", () => {
     expect(cancelled.activeRunId).toBeNull();
     expect(cancelled.agentRuns[0]?.stage).toBe("cancelled");
     expect(cancelled.agentRuns[0]?.cleanup).toBe("destroyed");
+  });
+
+  test("tracks durable publication evidence independently from the terminal Agent Run", () => {
+    const completed = completeRun(
+      { ...created, agentRuns: [{ ...created.agentRuns[0]!, baseSha: "a".repeat(40) }] },
+      "run-1",
+      "repository-tasks/task-1/agent-runs/run-1/completed.json",
+      true,
+      true,
+      "destroyed",
+      "2026-07-28T10:01:00.000Z",
+    );
+    const publicationInput = {
+      taskId: "task-1",
+      runId: "run-1",
+      publicationId: "publication-run-1",
+      patchArtifactKey: "repository-tasks/task-1/agent-runs/run-1/completed.json",
+      baseSha: "a".repeat(40),
+      branch: "polyphemus/task-1",
+      now: "2026-07-28T10:01:01.000Z",
+    } as const;
+    expect(canStartPullRequestPublication(completed, publicationInput)).toBe(true);
+    expect(canStartPullRequestPublication(
+      { ...completed, agentRuns: [{ ...completed.agentRuns[0]!, validated: false }] },
+      publicationInput,
+    )).toBe(false);
+    expect(canStartPullRequestPublication(
+      { ...completed, agentRuns: [{ ...completed.agentRuns[0]!, publicationEligible: false }] },
+      publicationInput,
+    )).toBe(false);
+    const started = startPullRequestPublication(completed, publicationInput);
+    expect(hasActivePullRequestPublication(started)).toBe(true);
+    const publishing = markPullRequestPublication(started, {
+      taskId: "task-1",
+      runId: "run-1",
+      publicationId: "publication-run-1",
+      status: "publishing",
+      activity: "Publishing the Agent Branch",
+      now: "2026-07-28T10:01:02.000Z",
+    });
+    const published = completePullRequestPublication(
+      publishing,
+      "run-1",
+      "publication-run-1",
+      "repository-tasks/task-1/agent-runs/run-1/pull-request-publication.json",
+      {
+        upstreamOwner: "example",
+        upstreamRepository: "repository",
+        baseBranch: "main",
+        usedFork: true,
+        headOwner: "polyphemus-agent",
+        headRepository: "repository",
+        branch: "polyphemus/task-1",
+        headSha: "b".repeat(40),
+        pullRequestNumber: 7,
+        pullRequestUrl: "https://github.com/example/repository/pull/7",
+        draft: true,
+      },
+      "2026-07-28T10:01:03.000Z",
+    );
+
+    expect(published.agentRuns[0]?.stage).toBe("complete");
+    expect(published.agentRuns[0]?.publication?.status).toBe("complete");
+    expect(published.agentRuns[0]?.publication?.evidence?.draft).toBe(true);
+    expect(hasActivePullRequestPublication(published)).toBe(false);
   });
 });

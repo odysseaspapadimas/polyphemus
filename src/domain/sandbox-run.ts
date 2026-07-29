@@ -2,19 +2,20 @@ import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 
 const RequiredText = Schema.Trim.check(Schema.isMinLength(1));
+const GitSha = Schema.String.check(Schema.isPattern(/^[0-9a-f]{40}$/));
 
 export const SandboxRunStartRequestSchema = Schema.Struct({
   sandboxId: RequiredText,
   repositoryUrl: RequiredText,
   task: RequiredText,
-  expectedBaseSha: Schema.optional(RequiredText),
+  expectedBaseSha: Schema.optional(GitSha),
 });
 export type SandboxRunStartRequest = typeof SandboxRunStartRequestSchema.Type;
 
 export const SandboxRunStartResultSchema = Schema.Struct({
   sandboxId: RequiredText,
   processId: RequiredText,
-  baseSha: RequiredText,
+  baseSha: GitSha,
   initialTestExitCode: Schema.Number,
 });
 export type SandboxRunStartResult = typeof SandboxRunStartResultSchema.Type;
@@ -115,7 +116,7 @@ export const SandboxRunResultSchema = Schema.Struct({
   repositoryUrl: RequiredText,
   runRequest: RequiredText,
   runAssumptions: Schema.Array(RequiredText),
-  baseSha: RequiredText,
+  baseSha: GitSha,
   pi: PiRunResultSchema,
   events: Schema.Array(PiActivityEventSchema),
   changedFiles: Schema.Array(RequiredText),

@@ -13,22 +13,26 @@ import {
   SessionManager,
   SettingsManager,
 } from "@earendil-works/pi-coding-agent";
-import { constants as fsConstants } from "node:fs";
 import {
-  access,
-  lstat,
+  chmod,
   mkdir,
   readFile,
-  readdir,
-  realpath,
-  stat,
+  unlink,
   writeFile,
 } from "node:fs/promises";
-import { dirname, isAbsolute, relative, resolve } from "node:path";
 import { Type } from "typebox";
-
-const REPOSITORY_DIR = process.env.POLYPHEMUS_REPOSITORY_DIR ?? "/workspace/repository";
-const RESULT_PATH = process.env.POLYPHEMUS_RESULT_PATH ?? "/workspace/control/pi-result.json";
+import { Value } from "typebox/value";
+import {
+  BoundedOperationSchema,
+  decodeValidationCommands,
+  resolveBoundedOperation,
+  type BoundedOperation,
+  type ValidationCommands,
+} from "./validation-commands.ts";
+const REPOSITORY_DIR = "/workspace/repository";
+const RESULT_PATH = "/workspace/result/pi-result.json";
+const AGENT_DIR = "/home/polyphemus-agent/run";
+const MODEL_PROXY_TOKEN_PATH = `${AGENT_DIR}/model-proxy-token`;
 const TASK = process.env.POLYPHEMUS_TASK?.trim();
 const MODEL_PROVIDER = "opencode-go";
 const MODEL_ID = "kimi-k2.7-code";
@@ -36,53 +40,162 @@ const MAX_COMMANDS = 12;
 const COMMAND_TIMEOUT_MS = 60_000;
 const RUN_TIMEOUT_MS = 8 * 60_000;
 const MAX_COMMAND_OUTPUT = 12_000;
+const REPOSITORY_EXECUTOR = "/usr/local/bin/polyphemus-repository-exec";
+const REPOSITORY_CLEANUP = "/usr/local/bin/polyphemus-repository-cleanup";
+const REPOSITORY_FILES = "/opt/polyphemus/repository-files.ts";
+const REPOSITORY_SAFE_BUNFIG_PATH = "/workspace/package-manager-config/bunfig.toml";
 
-const repositoryRoot = realpath(REPOSITORY_DIR);
+const RepositoryExistsResultSchema = Type.Object({
+  exists: Type.Boolean(),
+}, { additionalProperties: false });
+const RepositoryStatResultSchema = Type.Object({
+  isDirectory: Type.Boolean(),
+}, { additionalProperties: false });
+const RepositoryPathsResultSchema = Type.Array(
+  Type.String({ maxLength: 4_096 }),
+  { maxItems: 100_000 },
+);
+const PackageScriptsResultSchema = Type.Object({
+  scripts: Type.Optional(Type.Record(
+    Type.String({ minLength: 1, maxLength: 4_096 }),
+    Type.String({ maxLength: 16_384 }),
+  )),
+});
 
-const isWithin = (root: string, candidate: string): boolean => {
-  const path = relative(root, candidate);
-  return path === "" || (!path.startsWith("..") && !isAbsolute(path));
+const safeEnvironment = (): Record<string, string> => ({
+  PATH: "/usr/local/bin:/usr/bin:/bin",
+  HOME: "/home/polyphemus-agent",
+  TMPDIR: "/home/polyphemus-agent/tmp",
+  CI: "1",
+  NO_COLOR: "1",
+});
+
+const runRepositoryFileOperation = async (
+  operation: string,
+  args: readonly string[],
+  input?: string | Uint8Array,
+): Promise<Buffer> => {
+  const subprocess = Bun.spawn([
+    REPOSITORY_EXECUTOR,
+    "bun",
+    "--config",
+    REPOSITORY_SAFE_BUNFIG_PATH,
+    REPOSITORY_FILES,
+    operation,
+    ...args,
+  ], {
+    cwd: "/opt/polyphemus",
+    env: safeEnvironment(),
+    stdin: "pipe",
+    stdout: "pipe",
+    stderr: "pipe",
+    timeout: COMMAND_TIMEOUT_MS,
+    killSignal: "SIGKILL",
+  });
+  subprocess.stdin.write(input ?? new Uint8Array());
+  subprocess.stdin.end();
+  const [exitCode, stdout, stderr] = await Promise.all([
+    subprocess.exited,
+    new Response(subprocess.stdout).arrayBuffer(),
+    new Response(subprocess.stderr).text(),
+  ]);
+  if (!Number.isSafeInteger(exitCode) || exitCode !== 0) {
+    throw new Error(truncate(stderr) || `Repository file operation failed (${String(exitCode)})`);
+  }
+  return Buffer.from(stdout);
 };
 
-const repositoryPath = async (
-  input: string,
-  options: { readonly mayNotExist?: boolean } = {},
-): Promise<string> => {
-  const root = await repositoryRoot;
-  const lexical = resolve(input);
-  if (!isWithin(root, lexical)) {
-    throw new Error("Path is outside the repository");
+const decodeRepositoryJson = (output: Buffer): unknown => {
+  try {
+    return JSON.parse(output.toString("utf8")) as unknown;
+  } catch {
+    throw new Error("Repository file helper returned malformed JSON");
   }
+};
 
-  if (!options.mayNotExist) {
-    const resolved = await realpath(lexical);
-    if (!isWithin(root, resolved)) throw new Error("Path resolves outside the repository");
-    return resolved;
+const repositoryReadFile = (path: string): Promise<Buffer> =>
+  runRepositoryFileOperation("read", [path]);
+const repositoryAccess = (path: string, writable: boolean): Promise<void> =>
+  runRepositoryFileOperation(writable ? "access-read-write" : "access-read", [path])
+    .then(() => undefined);
+const repositoryWriteFile = (path: string, content: string | Uint8Array): Promise<void> =>
+  runRepositoryFileOperation("write", [path], content).then(() => undefined);
+const repositoryMkdir = (path: string): Promise<void> =>
+  runRepositoryFileOperation("mkdir", [path]).then(() => undefined);
+const repositoryExists = async (path: string): Promise<boolean> => {
+  const result = decodeRepositoryJson(await runRepositoryFileOperation("exists", [path]));
+  if (!Value.Check(RepositoryExistsResultSchema, result)) {
+    throw new Error("Repository file helper returned an invalid existence result");
   }
+  return result.exists;
+};
+const repositoryStat = async (path: string): Promise<{ isDirectory: () => boolean }> => {
+  const result = decodeRepositoryJson(await runRepositoryFileOperation("stat", [path]));
+  if (!Value.Check(RepositoryStatResultSchema, result)) {
+    throw new Error("Repository file helper returned an invalid stat result");
+  }
+  return { isDirectory: () => result.isDirectory };
+};
+const repositoryReaddir = async (path: string): Promise<string[]> => {
+  const result = decodeRepositoryJson(await runRepositoryFileOperation("readdir", [path]));
+  if (!Value.Check(RepositoryPathsResultSchema, result)) {
+    throw new Error("Repository file helper returned an invalid directory result");
+  }
+  return result;
+};
+const repositoryGlob = async (
+  pattern: string,
+  cwd: string,
+  options: { readonly ignore: readonly string[]; readonly limit: number },
+): Promise<string[]> => {
+  const result = decodeRepositoryJson(await runRepositoryFileOperation(
+    "glob",
+    [],
+    JSON.stringify({ pattern, cwd, ignore: options.ignore, limit: options.limit }),
+  ));
+  if (!Value.Check(RepositoryPathsResultSchema, result) || result.length > options.limit) {
+    throw new Error("Repository file helper returned an invalid glob result");
+  }
+  return result;
+};
 
-  const missing: string[] = [];
-  let cursor = lexical;
-  while (true) {
-    try {
-      const existing = await realpath(cursor);
-      const resolved = resolve(existing, ...missing.reverse());
-      if (!isWithin(root, resolved)) throw new Error("Path resolves outside the repository");
-      return resolved;
-    } catch (cause) {
-      if (cause instanceof Error && cause.message.includes("outside the repository")) throw cause;
-      const parent = dirname(cursor);
-      if (parent === cursor) throw cause;
-      missing.push(relative(parent, cursor));
-      cursor = parent;
-    }
+const cleanupRepositoryProcesses = async (): Promise<void> => {
+  const subprocess = Bun.spawn([REPOSITORY_CLEANUP], {
+    env: safeEnvironment(),
+    stdin: "ignore",
+    stdout: "ignore",
+    stderr: "pipe",
+    timeout: 5_000,
+    killSignal: "SIGKILL",
+  });
+  const [exitCode, stderr] = await Promise.all([
+    subprocess.exited,
+    new Response(subprocess.stderr).text(),
+  ]);
+  if (!Number.isSafeInteger(exitCode) || exitCode !== 0) {
+    throw new Error(truncate(stderr) || "Repository subprocess cleanup failed");
   }
+};
+
+const readCurrentPackageScripts = async (): Promise<Readonly<Record<string, string>>> => {
+  const raw = await repositoryReadFile(`${REPOSITORY_DIR}/package.json`);
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw.toString("utf8")) as unknown;
+  } catch {
+    throw new Error("package.json is no longer valid JSON");
+  }
+  if (!Value.Check(PackageScriptsResultSchema, parsed)) {
+    throw new Error("package.json scripts no longer match the validated shape");
+  }
+  return parsed.scripts ?? {};
 };
 
 const repoRead = {
   ...createReadToolDefinition(REPOSITORY_DIR, {
     operations: {
-      readFile: async (path) => readFile(await repositoryPath(path)),
-      access: async (path) => access(await repositoryPath(path), fsConstants.R_OK),
+      readFile: repositoryReadFile,
+      access: (path) => repositoryAccess(path, false),
     },
   }),
   name: "repo_read",
@@ -92,10 +205,9 @@ const repoRead = {
 const repoEdit = {
   ...createEditToolDefinition(REPOSITORY_DIR, {
     operations: {
-      readFile: async (path) => readFile(await repositoryPath(path)),
-      writeFile: async (path, content) => writeFile(await repositoryPath(path), content),
-      access: async (path) =>
-        access(await repositoryPath(path), fsConstants.R_OK | fsConstants.W_OK),
+      readFile: repositoryReadFile,
+      writeFile: repositoryWriteFile,
+      access: (path) => repositoryAccess(path, true),
     },
   }),
   name: "repo_edit",
@@ -105,10 +217,8 @@ const repoEdit = {
 const repoWrite = {
   ...createWriteToolDefinition(REPOSITORY_DIR, {
     operations: {
-      writeFile: async (path, content) =>
-        writeFile(await repositoryPath(path, { mayNotExist: true }), content),
-      mkdir: async (path) =>
-        mkdir(await repositoryPath(path, { mayNotExist: true }), { recursive: true }).then(() => undefined),
+      writeFile: repositoryWriteFile,
+      mkdir: repositoryMkdir,
     },
   }),
   name: "repo_write",
@@ -118,28 +228,8 @@ const repoWrite = {
 const repoFind = {
   ...createFindToolDefinition(REPOSITORY_DIR, {
     operations: {
-      exists: async (path) => {
-        try {
-          await lstat(await repositoryPath(path));
-          return true;
-        } catch {
-          return false;
-        }
-      },
-      glob: async (pattern, cwd, options) => {
-        const safeCwd = await repositoryPath(cwd);
-        const files: string[] = [];
-        for await (const path of new Bun.Glob(pattern).scan({
-          cwd: safeCwd,
-          dot: true,
-          onlyFiles: true,
-        })) {
-          if (options.ignore.some((ignored) => path.includes(ignored))) continue;
-          files.push(path);
-          if (files.length >= options.limit) break;
-        }
-        return files;
-      },
+      exists: repositoryExists,
+      glob: repositoryGlob,
     },
   }),
   name: "repo_find",
@@ -149,16 +239,9 @@ const repoFind = {
 const repoLs = {
   ...createLsToolDefinition(REPOSITORY_DIR, {
     operations: {
-      exists: async (path) => {
-        try {
-          await lstat(await repositoryPath(path));
-          return true;
-        } catch {
-          return false;
-        }
-      },
-      stat: async (path) => stat(await repositoryPath(path)),
-      readdir: async (path) => readdir(await repositoryPath(path)),
+      exists: repositoryExists,
+      stat: repositoryStat,
+      readdir: repositoryReaddir,
     },
   }),
   name: "repo_ls",
@@ -205,106 +288,148 @@ const truncate = (text: string): string =>
     ? text
     : `${text.slice(0, MAX_COMMAND_OUTPUT)}\n[output truncated]`;
 
-const safeEnvironment = (): Record<string, string> => {
-  const env: Record<string, string> = {
-    PATH: process.env.PATH ?? "/usr/local/bin:/usr/bin:/bin",
-    HOME: process.env.HOME ?? "/root",
-    TMPDIR: process.env.TMPDIR ?? "/tmp",
-    CI: "1",
-    NO_COLOR: "1",
-  };
-  return env;
-};
-
 let commandCount = 0;
 
 const commandParameters = Type.Object({
-  program: Type.Union([Type.Literal("bun"), Type.Literal("npm"), Type.Literal("git")]),
-  args: Type.Array(Type.String(), { maxItems: 16 }),
-});
+  operation: BoundedOperationSchema,
+}, { additionalProperties: false });
 
 interface CommandDetails {
   readonly commandCount: number;
   readonly budget: number;
-  readonly program?: "bun" | "npm" | "git";
-  readonly args?: readonly string[];
+  readonly operation?: BoundedOperation;
+  readonly command?: string;
   readonly exitCode?: number;
   readonly stdout?: string;
   readonly stderr?: string;
 }
 
-const commandAllowed = (program: "bun" | "npm" | "git", args: readonly string[]): boolean => {
-  if (args.some((arg) => /[\n\r\0]/.test(arg))) return false;
-  const operation = args[0];
-  if (program === "bun" || program === "npm") {
-    return operation === "install" || operation === "test" || operation === "run";
-  }
-  return operation === "status" || operation === "diff" || operation === "log" || operation === "show";
+const makeBoundedCommand = (policy: ValidationCommands) => {
+  const availableChecks = policy.checks.map((check) => check.name).join(", ") || "none";
+  return defineTool<typeof commandParameters, CommandDetails>({
+    name: "bounded_command",
+    label: "Bounded repository command",
+    description: `Run one configured validation check or fixed read-only Git inspection. Available validation checks: ${availableChecks}.`,
+    promptSnippet: "Run a configured check or fixed read-only Git inspection",
+    promptGuidelines: [
+      `Configured validation checks are: ${availableChecks}.`,
+      "Use only the named operation; arguments, working directory, environment, and executable are fixed by Polyphemus.",
+      "Do not attempt commits, branches, remote operations, deployment, or commands outside the repository.",
+    ],
+    parameters: commandParameters,
+    async execute(_toolCallId, { operation }) {
+      commandCount += 1;
+      if (commandCount > MAX_COMMANDS) {
+        return {
+          content: [{ type: "text", text: `Command budget exhausted (${MAX_COMMANDS}).` }],
+          details: { operation, commandCount, budget: MAX_COMMANDS },
+          isError: true,
+        };
+      }
+
+      let executable;
+      try {
+        executable = resolveBoundedOperation(policy, operation);
+      } catch (cause) {
+        return {
+          content: [{
+            type: "text",
+            text: cause instanceof Error ? cause.message : "Validation operation is unavailable.",
+          }],
+          details: { operation, commandCount, budget: MAX_COMMANDS },
+          isError: true,
+        };
+      }
+
+      const configuredCheck = policy.checks.find((check) => check.name === operation);
+      if (configuredCheck !== undefined) {
+        try {
+          const scripts = await readCurrentPackageScripts();
+          if (scripts[configuredCheck.packageScript] !== configuredCheck.expectedScript) {
+            return {
+              content: [{
+                type: "text",
+                text: `Configured ${configuredCheck.packageScript} script changed after the baseline and cannot be run.`,
+              }],
+              details: {
+                operation,
+                command: executable.display,
+                exitCode: 1,
+                commandCount,
+                budget: MAX_COMMANDS,
+              },
+              isError: true,
+            };
+          }
+        } catch (cause) {
+          return {
+            content: [{
+              type: "text",
+              text: cause instanceof Error ? cause.message : "Could not verify package.json scripts.",
+            }],
+            details: {
+              operation,
+              command: executable.display,
+              exitCode: 1,
+              commandCount,
+              budget: MAX_COMMANDS,
+            },
+            isError: true,
+          };
+        }
+      }
+
+      const subprocess = Bun.spawn([
+        REPOSITORY_EXECUTOR,
+        executable.program,
+        ...executable.args,
+      ], {
+        cwd: REPOSITORY_DIR,
+        env: { ...safeEnvironment(), ...executable.environment },
+        stdout: "pipe",
+        stderr: "pipe",
+        timeout: COMMAND_TIMEOUT_MS,
+        killSignal: "SIGKILL",
+      });
+      const [exitCode, stdout, stderr] = await Promise.all([
+        subprocess.exited,
+        new Response(subprocess.stdout).text(),
+        new Response(subprocess.stderr).text(),
+      ]);
+      let cleanupError = "";
+      try {
+        await cleanupRepositoryProcesses();
+      } catch (cause) {
+        cleanupError = cause instanceof Error ? cause.message : "Repository subprocess cleanup failed";
+      }
+      const effectiveExitCode = Number.isSafeInteger(exitCode) && exitCode === 0 && cleanupError === ""
+        ? 0
+        : Number.isSafeInteger(exitCode) && exitCode !== 0 ? exitCode : 1;
+      const result = {
+        operation,
+        command: executable.display,
+        exitCode: effectiveExitCode,
+        stdout: truncate(stdout),
+        stderr: truncate([stderr, cleanupError].filter(Boolean).join("\n")),
+        commandCount,
+        budget: MAX_COMMANDS,
+      };
+      return {
+        content: [{
+          type: "text",
+          text: [
+            `Command: ${executable.display}`,
+            `Exit code: ${effectiveExitCode}`,
+            result.stdout.length > 0 ? `stdout:\n${result.stdout}` : "",
+            result.stderr.length > 0 ? `stderr:\n${result.stderr}` : "",
+          ].filter(Boolean).join("\n"),
+        }],
+        details: result,
+        isError: effectiveExitCode !== 0,
+      };
+    },
+  });
 };
-
-const boundedCommand = defineTool<typeof commandParameters, CommandDetails>({
-  name: "bounded_command",
-  label: "Bounded repository command",
-  description: "Run an allowed Bun or read-only Git command in the repository with a fixed timeout and bounded output.",
-  promptSnippet: "Run Bun checks or read-only Git inspection commands",
-  promptGuidelines: [
-    "Use bounded_command for Bun or npm checks and read-only Git inspection.",
-    "Do not attempt commits, branches, remote operations, deployment, or commands outside the repository.",
-  ],
-  parameters: commandParameters,
-  async execute(_toolCallId, { program, args }) {
-    commandCount += 1;
-    if (commandCount > MAX_COMMANDS) {
-      return {
-        content: [{ type: "text", text: `Command budget exhausted (${MAX_COMMANDS}).` }],
-        details: { commandCount, budget: MAX_COMMANDS },
-        isError: true,
-      };
-    }
-    if (!commandAllowed(program, args)) {
-      return {
-        content: [{ type: "text", text: `Command not allowed: ${program} ${args.join(" ")}` }],
-        details: { program, args, commandCount, budget: MAX_COMMANDS },
-        isError: true,
-      };
-    }
-
-    const subprocess = Bun.spawn([program, ...args], {
-      cwd: REPOSITORY_DIR,
-      env: safeEnvironment(),
-      stdout: "pipe",
-      stderr: "pipe",
-      timeout: COMMAND_TIMEOUT_MS,
-      killSignal: "SIGKILL",
-    });
-    const [exitCode, stdout, stderr] = await Promise.all([
-      subprocess.exited,
-      new Response(subprocess.stdout).text(),
-      new Response(subprocess.stderr).text(),
-    ]);
-    const result = {
-      program,
-      args,
-      exitCode,
-      stdout: truncate(stdout),
-      stderr: truncate(stderr),
-      commandCount,
-      budget: MAX_COMMANDS,
-    };
-    return {
-      content: [{
-        type: "text",
-        text: [
-          `Exit code: ${exitCode}`,
-          result.stdout.length > 0 ? `stdout:\n${result.stdout}` : "",
-          result.stderr.length > 0 ? `stderr:\n${result.stderr}` : "",
-        ].filter(Boolean).join("\n"),
-      }],
-      details: result,
-      isError: exitCode !== 0,
-    };
-  },
-});
 
 let structuredResult: AgentFindingResult | undefined;
 const runStartedAt = Date.now();
@@ -365,19 +490,6 @@ You must end by calling finish_run with honest findings, assumptions, changed fi
   reload: async () => {},
 };
 
-// The SDK declares customTools as an invariant heterogeneous array even though
-// each definition is accepted at runtime; preserve each tool's schema above and
-// bridge that declaration mismatch once at the registration boundary.
-const restrictedTools = [
-  repoRead,
-  repoEdit,
-  repoWrite,
-  repoFind,
-  repoLs,
-  boundedCommand,
-  finishRun,
-] as unknown as NonNullable<CreateAgentSessionOptions["customTools"]>;
-
 const fallbackResult = (summary: string): AgentFindingResult => ({
   version: 1,
   status: "blocked",
@@ -404,27 +516,38 @@ const completeResult = (
 
 const main = async (): Promise<void> => {
   if (!TASK) throw new Error("POLYPHEMUS_TASK is required");
+  const validationCommands = decodeValidationCommands(
+    process.env.POLYPHEMUS_VALIDATION_COMMANDS,
+  );
+  delete process.env.POLYPHEMUS_VALIDATION_COMMANDS;
   const proxyUrl = process.env.POLYPHEMUS_MODEL_PROXY_URL;
-  const proxyToken = process.env.POLYPHEMUS_MODEL_PROXY_TOKEN;
-  if (!proxyUrl || !proxyToken) throw new Error("Scoped model proxy access is required");
+  if (!proxyUrl) throw new Error("Scoped model proxy access is required");
   const parsedProxyUrl = new URL(proxyUrl);
-  if (parsedProxyUrl.protocol !== "https:") throw new Error("Model proxy must use HTTPS");
+  if (parsedProxyUrl.protocol !== "https:" || parsedProxyUrl.username !== "" ||
+      parsedProxyUrl.password !== "" || parsedProxyUrl.hash !== "") {
+    throw new Error("Model proxy must use an uncredentialed HTTPS URL");
+  }
+  delete process.env.POLYPHEMUS_MODEL_PROXY_URL;
 
-  const agentDir = "/tmp/polyphemus-agent";
-  const modelsPath = `${agentDir}/models.json`;
-  await mkdir(agentDir, { recursive: true });
+  const proxyToken = await readFile(MODEL_PROXY_TOKEN_PATH, "utf8");
+  await unlink(MODEL_PROXY_TOKEN_PATH);
+  if (proxyToken.length > 4_096 || !/^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(proxyToken)) {
+    throw new Error("Scoped model proxy access is malformed");
+  }
+
+  const modelsPath = `${AGENT_DIR}/models.json`;
+  await mkdir(AGENT_DIR, { recursive: true, mode: 0o700 });
+  await chmod(AGENT_DIR, 0o700);
   await writeFile(modelsPath, JSON.stringify({
     providers: {
       [MODEL_PROVIDER]: { baseUrl: parsedProxyUrl.toString().replace(/\/$/, "") },
     },
-  }));
+  }), { mode: 0o600 });
   const modelRuntime = await ModelRuntime.create({
-    authPath: `${agentDir}/auth.json`,
+    authPath: `${AGENT_DIR}/auth.json`,
     modelsPath,
   });
-  modelRuntime.setRuntimeApiKey(MODEL_PROVIDER, proxyToken);
-  delete process.env.POLYPHEMUS_MODEL_PROXY_TOKEN;
-  delete process.env.POLYPHEMUS_MODEL_PROXY_URL;
+  await modelRuntime.setRuntimeApiKey(MODEL_PROVIDER, proxyToken);
 
   const model = modelRuntime.getModel(MODEL_PROVIDER, MODEL_ID);
   if (!model) throw new Error(`Pi model unavailable: ${MODEL_PROVIDER}/${MODEL_ID}`);
@@ -433,9 +556,22 @@ const main = async (): Promise<void> => {
     compaction: { enabled: false },
     retry: { enabled: true, maxRetries: 1 },
   });
+  const boundedCommand = makeBoundedCommand(validationCommands);
+  // The SDK declares customTools as an invariant heterogeneous array even though
+  // each definition is accepted at runtime; preserve each tool's schema above and
+  // bridge that declaration mismatch once at the registration boundary.
+  const restrictedTools = [
+    repoRead,
+    repoEdit,
+    repoWrite,
+    repoFind,
+    repoLs,
+    boundedCommand,
+    finishRun,
+  ] as unknown as NonNullable<CreateAgentSessionOptions["customTools"]>;
   const { session } = await createAgentSession({
     cwd: REPOSITORY_DIR,
-    agentDir,
+    agentDir: AGENT_DIR,
     model,
     modelRuntime,
     thinkingLevel: "medium",
@@ -514,6 +650,7 @@ const main = async (): Promise<void> => {
     clearTimeout(timeout);
     unsubscribe();
     session.dispose();
+    await cleanupRepositoryProcesses();
   }
 
   const didFinish = structuredResult !== undefined;
@@ -530,9 +667,9 @@ const main = async (): Promise<void> => {
   if (!didFinish) process.exitCode = 2;
 };
 
-main().catch(async (cause) => {
+main().catch(async () => {
   const result = completeResult(
-    fallbackResult(cause instanceof Error ? cause.message : String(cause)),
+    fallbackResult("The repository agent runner failed."),
     "runner_error",
   );
   try {
@@ -541,6 +678,6 @@ main().catch(async (cause) => {
     // The caller still receives the fatal stderr line when the result path is unavailable.
   }
   emit({ type: "pi.activity", stage: "finishing", label: "Repository agent failed", isError: true });
-  console.error(cause);
+  console.error("Repository agent runner failed");
   process.exitCode = 1;
 });

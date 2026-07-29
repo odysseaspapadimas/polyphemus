@@ -1,17 +1,25 @@
 import * as Alchemy from "alchemy";
 import * as Cloudflare from "alchemy/Cloudflare";
 import * as Effect from "effect/Effect";
-import RepositoryAgentBackend from "./src/RepositoryAgentBackend.ts";
+import {
+  RepositoryAgentBackend,
+  RepositoryAgentBackendLive,
+} from "./src/RepositoryAgentBackend.ts";
 import { ModelProxyWorker } from "./src/ModelProxyWorker.ts";
-import { PreviewAccess } from "./src/PreviewAccess.ts";
+import { PreviewAccess, PREVIEW_ACCESS_ISSUER } from "./src/PreviewAccess.ts";
 import { RepositoryTaskIndexDatabase } from "./src/RepositoryTaskIndexDatabase.ts";
 import { RunArtifactsBucket } from "./src/RunArtifactsBucket.ts";
 import { SandboxRuntimeWorker } from "./src/SandboxRuntimeWorker.ts";
 
 export { RepositoryAgentBackend };
 
+const RepositoryAgentBackendResource = RepositoryAgentBackend.pipe(
+  Effect.provide(RepositoryAgentBackendLive),
+);
+
 export const Website = Effect.gen(function* () {
-  const repositoryAgentBackend = yield* RepositoryAgentBackend;
+  const repositoryAgentBackend = yield* RepositoryAgentBackendResource;
+  const access = yield* PreviewAccess;
 
   return yield* Cloudflare.Website.Vite("Website", {
     name: "polyphemus",
@@ -22,6 +30,8 @@ export const Website = Effect.gen(function* () {
       flags: ["nodejs_compat"],
     },
     env: {
+      ACCESS_AUDIENCE: access.aud,
+      ACCESS_ISSUER: PREVIEW_ACCESS_ISSUER,
       REPOSITORY_AGENT_BACKEND: repositoryAgentBackend,
     },
   });
@@ -37,7 +47,7 @@ export default Alchemy.Stack(
   },
   Effect.gen(function* () {
     const modelProxy = yield* ModelProxyWorker;
-    const repositoryAgentBackend = yield* RepositoryAgentBackend;
+    const repositoryAgentBackend = yield* RepositoryAgentBackendResource;
     const sandboxRuntime = yield* SandboxRuntimeWorker;
     const runArtifacts = yield* RunArtifactsBucket;
     const taskIndex = yield* RepositoryTaskIndexDatabase;

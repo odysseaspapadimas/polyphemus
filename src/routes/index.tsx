@@ -6,8 +6,10 @@ import {
   Clock3,
   Code2,
   Eye,
+  ExternalLink,
   FileCode2,
   GitBranch,
+  GitPullRequest,
   LoaderCircle,
   Play,
   ShieldCheck,
@@ -31,7 +33,14 @@ import {
   type RepositoryTaskSnapshot,
   type RunArtifact,
 } from "../domain/repository-task.ts";
+import type { PullRequestPublicationSnapshot } from "../domain/pull-request-publication.ts";
 import type { SandboxRunResult } from "../domain/sandbox-run.ts";
+import {
+  hasRecoverableRepositoryTaskActivity,
+  newerRepositoryTaskSnapshot,
+  useRepositoryTaskLive,
+  type RepositoryTaskLiveStatus,
+} from "../useRepositoryTaskLive.ts";
 import {
   FIXTURE_REPOSITORY,
   FIXTURE_TASK,
@@ -67,6 +76,18 @@ const setHandleLocation = (handle: RepositoryRunHandle): void => {
 const isActiveRun = (run: AgentRunSnapshot | undefined): boolean =>
   run !== undefined && !["complete", "failed", "cancelled"].includes(run.stage);
 
+const mergeTaskIndexByRevision = (
+  current: readonly RepositoryTaskSnapshot[] | undefined,
+  incoming: readonly RepositoryTaskSnapshot[],
+): readonly RepositoryTaskSnapshot[] => {
+  if (current === undefined) return incoming;
+  const currentById = new Map(current.map((snapshot) => [snapshot.taskId, snapshot]));
+  const merged = incoming.map((snapshot) =>
+    newerRepositoryTaskSnapshot(currentById.get(snapshot.taskId), snapshot));
+  const incomingIds = new Set(incoming.map((snapshot) => snapshot.taskId));
+  return [...merged, ...current.filter((snapshot) => !incomingIds.has(snapshot.taskId))];
+};
+
 function Home() {
   const queryClient = useQueryClient();
   const [request, setRequest] = useState<RepositoryRunRequest>({
@@ -86,16 +107,35 @@ function Home() {
 
   const taskIndexQuery = useQuery({
     queryKey: ["repository-task-index"],
-    queryFn: () => listRepositoryTasks(),
-    refetchInterval: 10_000,
+    queryFn: async () => {
+      const incoming = await listRepositoryTasks();
+      return mergeTaskIndexByRevision(
+        queryClient.getQueryData<readonly RepositoryTaskSnapshot[]>(["repository-task-index"]),
+        incoming,
+      );
+    },
+    refetchInterval: 30_000,
   });
 
+  const liveStatus = useRepositoryTaskLive(handle?.taskId ?? null);
   const statusQuery = useQuery({
     queryKey: ["repository-task", handle?.taskId],
-    queryFn: () => getRepositoryRunStatus({ data: handle! }),
+    queryFn: async () => {
+      const fetched = await getRepositoryRunStatus({ data: handle! });
+      return newerRepositoryTaskSnapshot(
+        queryClient.getQueryData<RepositoryTaskSnapshot>([
+          "repository-task",
+          fetched.taskId,
+        ]),
+        fetched,
+      );
+    },
     enabled: handle !== null,
-    refetchInterval: (query) => query.state.data?.activeRunId === null ? false : 3_000,
-    refetchIntervalInBackground: true,
+    refetchInterval: (query) => liveStatus === "connected" ||
+        !hasRecoverableRepositoryTaskActivity(query.state.data)
+      ? false
+      : 15_000,
+    refetchIntervalInBackground: liveStatus !== "connected",
   });
 
   const taskSnapshot = statusQuery.data;
@@ -121,7 +161,10 @@ function Home() {
     onSuccess: async (nextHandle) => {
       setHandle(nextHandle);
       setHandleLocation(nextHandle);
-      await queryClient.invalidateQueries({ queryKey: ["repository-task-index"] });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["repository-task", nextHandle.taskId] }),
+        queryClient.invalidateQueries({ queryKey: ["repository-task-index"] }),
+      ]);
     },
   });
 
@@ -142,16 +185,20 @@ function Home() {
     mutationFn: (runHandle: RepositoryRunHandle) => cancelRepositoryRun({ data: runHandle }),
     onSuccess: async (snapshot) => {
       if (handle !== null) {
-        queryClient.setQueryData(
+        queryClient.setQueryData<RepositoryTaskSnapshot>(
           ["repository-task", handle.taskId],
-          snapshot,
+          (current) => newerRepositoryTaskSnapshot(current, snapshot),
         );
       }
-      await queryClient.invalidateQueries({ queryKey: ["repository-task-index"] });
+      await Promise.all([
+        queryClient.refetchQueries({ queryKey: ["repository-task", snapshot.taskId] }),
+        queryClient.invalidateQueries({ queryKey: ["repository-task-index"] }),
+      ]);
     },
   });
 
-  const busy = startMutation.isPending || rerunMutation.isPending || isActiveRun(activeRun);
+  const busy = startMutation.isPending || rerunMutation.isPending ||
+    isActiveRun(activeRun) || hasRecoverableRepositoryTaskActivity(taskSnapshot);
   const shellError = startMutation.error ?? rerunMutation.error ?? statusQuery.error ??
     taskIndexQuery.error ?? identityQuery.error ?? resultQuery.error ?? cancelMutation.error;
   const artifact = resultQuery.data;
@@ -192,6 +239,7 @@ function Home() {
         />
         <RunProgressPanel
           run={activeRun ?? currentRun}
+          liveStatus={liveStatus}
           starting={startMutation.isPending || rerunMutation.isPending}
           cancelling={cancelMutation.isPending}
           onCancel={() => taskSnapshot?.activeRunId && cancelMutation.mutate({
@@ -227,12 +275,15 @@ function Home() {
 
       {shellError ? <div className="global-error" role="alert">{errorMessage(shellError)}</div> : null}
       {artifact?.terminal.status === "completed" ? <RunResultPanel result={artifact.terminal.result} /> : null}
+      {currentRun?.publication ? (
+        <PullRequestPublicationPanel publication={currentRun.publication} />
+      ) : null}
       {artifact?.terminal.status === "failed" ? <TerminalRunPanel artifact={artifact} /> : null}
       {artifact?.terminal.status === "cancelled" ? <TerminalRunPanel artifact={artifact} /> : null}
 
       <footer className="app-footer">
         <span>Public repository preview</span>
-        <span>Public repository · No GitHub writes · Independent validation</span>
+        <span>Public repository · Draft pull requests only · Independent validation</span>
       </footer>
     </main>
   );
@@ -274,7 +325,7 @@ function RunRequestPanel(props: Readonly<{
             spellCheck={false}
           />
         </div>
-        <span className="field-note">{props.existingTask ? "All Agent Runs in this Repository Task use the same repository." : "Public GitHub repositories with Bun or npm lockfiles are supported."}</span>
+        <span className="field-note">{props.existingTask ? "All Agent Runs in this Repository Task use the same repository." : "Use one compatible Bun, npm, or pnpm lockfile; Yarn and mixed-lockfile repositories need an exact packageManager declaration."}</span>
       </label>
 
       <label>
@@ -288,10 +339,11 @@ function RunRequestPanel(props: Readonly<{
 
       <button className="primary-command" type="submit" disabled={!valid || props.busy}>
         {props.busy ? <LoaderCircle className="spin" size={18} /> : <Play size={18} />}
-        {props.busy ? "Agent Run active" : props.existingTask ? "Run again" : "Start Agent Run"}
+        {props.busy ? "Task activity active" : props.existingTask ? "Run again" : "Start Agent Run"}
       </button>
       <p className="authorization-note">
-        Submitting authorizes one isolated Agent Run. It cannot write to GitHub.
+        Submitting authorizes one isolated Agent Run. Pi never receives GitHub credentials;
+        a non-empty Validated Patch is published separately as a draft pull request.
       </p>
       {props.error ? <p className="inline-error">{errorMessage(props.error)}</p> : null}
     </form>
@@ -376,6 +428,7 @@ function RunHistory(props: Readonly<{
 
 function RunProgressPanel(props: Readonly<{
   run: AgentRunSnapshot | undefined;
+  liveStatus: RepositoryTaskLiveStatus;
   starting: boolean;
   cancelling: boolean;
   onCancel: () => void;
@@ -399,7 +452,11 @@ function RunProgressPanel(props: Readonly<{
             disabled={props.starting || props.cancelling || props.run?.stage === "cancelling"}
             onClick={props.onCancel}
           ><CircleStop size={16} /> {props.cancelling || props.run?.stage === "cancelling" ? "Cancelling" : "Cancel"}</button>
-        ) : <span className="idle-badge">{hasRun ? "Durable" : "Idle"}</span>}
+        ) : (
+          <span className="idle-badge">
+            {props.liveStatus === "connected" ? "Live" : hasRun ? "Durable" : "Idle"}
+          </span>
+        )}
       </div>
 
       <ol className="run-stages">
@@ -448,6 +505,50 @@ function RunProgressPanel(props: Readonly<{
           ))}</ul>
         </div>
       ) : null}
+    </section>
+  );
+}
+
+function PullRequestPublicationPanel({ publication }: Readonly<{
+  publication: PullRequestPublicationSnapshot;
+}>) {
+  const complete = publication.status === "complete" && publication.evidence !== null;
+  const failed = publication.status === "failed" && publication.failure !== null;
+  return (
+    <section
+      className="panel publication-panel"
+      data-status={publication.status}
+      aria-label="Pull Request Publication"
+    >
+      <div className="publication-icon">
+        {complete ? <GitPullRequest size={24} /> : failed ? <CircleStop size={24} /> : <LoaderCircle className="spin" size={24} />}
+      </div>
+      <div>
+        <p className="eyebrow">Pull Request Publication</p>
+        <h2>{publication.activity}</h2>
+        {complete ? (
+          <p>
+            <code>{publication.evidence!.headOwner}/{publication.evidence!.headRepository}:{publication.evidence!.branch}</code>
+            {" · "}<code>{publication.evidence!.headSha.slice(0, 12)}</code>
+          </p>
+        ) : failed ? (
+          <p>{publication.failure!.message} · {humanize(publication.failure!.code)}</p>
+        ) : (
+          <p>The persisted Validated Patch is being published after Pi has terminated.</p>
+        )}
+      </div>
+      {complete ? (
+        <a
+          className="publication-link"
+          href={publication.evidence!.pullRequestUrl}
+          target="_blank"
+          rel="noreferrer"
+        >
+          Draft PR #{publication.evidence!.pullRequestNumber} <ExternalLink size={14} />
+        </a>
+      ) : (
+        <span className="idle-badge">{humanize(publication.status)}</span>
+      )}
     </section>
   );
 }

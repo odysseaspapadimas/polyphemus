@@ -10,33 +10,44 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ApiRepositoryTasksTaskIdLiveRouteImport } from './routes/api.repository-tasks.$taskId.live'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiRepositoryTasksTaskIdLiveRoute =
+  ApiRepositoryTasksTaskIdLiveRouteImport.update({
+    id: '/api/repository-tasks/$taskId/live',
+    path: '/api/repository-tasks/$taskId/live',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/api/repository-tasks/$taskId/live': typeof ApiRepositoryTasksTaskIdLiveRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/api/repository-tasks/$taskId/live': typeof ApiRepositoryTasksTaskIdLiveRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/api/repository-tasks/$taskId/live': typeof ApiRepositoryTasksTaskIdLiveRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths: '/' | '/api/repository-tasks/$taskId/live'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to: '/' | '/api/repository-tasks/$taskId/live'
+  id: '__root__' | '/' | '/api/repository-tasks/$taskId/live'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ApiRepositoryTasksTaskIdLiveRoute: typeof ApiRepositoryTasksTaskIdLiveRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -48,11 +59,19 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/repository-tasks/$taskId/live': {
+      id: '/api/repository-tasks/$taskId/live'
+      path: '/api/repository-tasks/$taskId/live'
+      fullPath: '/api/repository-tasks/$taskId/live'
+      preLoaderRoute: typeof ApiRepositoryTasksTaskIdLiveRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ApiRepositoryTasksTaskIdLiveRoute: ApiRepositoryTasksTaskIdLiveRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
