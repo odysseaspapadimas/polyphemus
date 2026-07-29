@@ -6,9 +6,9 @@ export const SandboxContainer = Cloudflare.Container<Sandbox>("SandboxContainer"
   context: `${import.meta.dirname}/../runner`,
   // The current Alchemy preview resolves this path from the stack cwd.
   dockerfile: `${import.meta.dirname}/../runner/Dockerfile`,
-  // Public repositories routinely exceed the 256 MiB lite tier during install
-  // or validation; basic keeps the preview bounded while avoiding known OOMs.
-  instanceType: "basic",
+  // Real TypeScript repositories can approach 1 GiB during validation before
+  // accounting for the Sandbox server. standard-1 prevents basic-tier OOMs.
+  instanceType: "standard-1",
   // Leave room for rollout overlap and independent Repository Tasks. Each
   // Repository Task still enforces at most one active Agent Run.
   maxInstances: 3,
