@@ -215,10 +215,18 @@ const makeRepositoryRunWorkflow = Effect.gen(function* () {
       }).pipe(Effect.as({ recorded: true as const }), Effect.orDie),
     );
 
-    const finalized = yield* Cloudflare.Workflows.task(
+    const finalized = yield* captureCause(Cloudflare.Workflows.task(
       "finalize-and-validate-run",
-      capture(sandboxClient.finalize(processHandle)),
-    );
+      sandboxClient.finalize(processHandle).pipe(Effect.orDie),
+      {
+        // Finalization removes and reinstalls dependencies before running up to
+        // three five-minute checks. The default ten-minute attempt budget is
+        // too short, and retrying this destructive boundary against the same
+        // Sandbox can overlap work rather than recover it.
+        retries: { limit: 1, delay: "2 seconds", backoff: "constant" },
+        timeout: "30 minutes",
+      },
+    ));
     if (!finalized.ok) {
       return yield* persistFailure("validating", finalized.message, lastStatus.events);
     }
