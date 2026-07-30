@@ -365,10 +365,22 @@ export const makeRepositoryAgent = <R>(
     yield* ports.requestCancellation({ ...handle, now: now() });
     if (run.workflowId !== null) yield* ports.terminateWorkflow(run.workflowId);
 
-    const cancellation = yield* ports.cancelSandbox({
+    const cancellationInput = {
       sandboxId: run.sandboxId,
       processId: run.processId,
-    });
+    };
+    const cleanupFailed: SandboxCancelResult = {
+      ...cancellationInput,
+      status: "cancelled",
+      events: [],
+      cleanup: "failed",
+    };
+    // A failed cleanup must remain visible, but it must not leave the
+    // authoritative Repository Task permanently stuck in `cancelling`.
+    const cancellation = yield* ports.cancelSandbox(cancellationInput).pipe(
+      Effect.catch(() => Effect.succeed(cleanupFailed)),
+      Effect.catchDefect(() => Effect.succeed(cleanupFailed)),
+    );
     const artifactKey = cancelledArtifactKey(handle.taskId, handle.runId);
     const artifact: RunArtifact = {
       version: 1,

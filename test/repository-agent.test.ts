@@ -20,7 +20,10 @@ import { RepositoryAgentBackendFailed } from "../src/RepositoryAgentError.ts";
 
 const NOW = "2026-07-29T12:00:00.000Z";
 
-const makeFixture = (options: { readonly failWorkflowStart?: boolean } = {}) => {
+const makeFixture = (options: {
+  readonly failWorkflowStart?: boolean;
+  readonly failSandboxCancel?: boolean;
+} = {}) => {
   let snapshot: RepositoryTaskSnapshot | null = null;
   const index = new Map<string, RepositoryTaskIndexEntry>();
   const artifacts = new Map<string, RunArtifact>();
@@ -56,12 +59,17 @@ const makeFixture = (options: { readonly failWorkflowStart?: boolean } = {}) => 
         }))
       : Effect.succeed({ id: input.runId }),
     terminateWorkflow: () => Effect.void,
-    cancelSandbox: (input) => Effect.succeed({
-      ...input,
-      status: "cancelled",
-      events: [],
-      cleanup: "destroyed",
-    }),
+    cancelSandbox: (input) => options.failSandboxCancel
+      ? Effect.fail(new RepositoryAgentBackendFailed({
+          operation: "cancel-sandbox-run",
+          message: "Could not cancel the Sandbox Agent Run",
+        }))
+      : Effect.succeed({
+          ...input,
+          status: "cancelled" as const,
+          events: [],
+          cleanup: "destroyed" as const,
+        }),
     readArtifact: (key) => Effect.succeed(artifacts.get(key) ?? null),
     writeArtifact: (key, artifact) => Effect.sync(() => { artifacts.set(key, artifact); }),
     requestCancellation: (input) => {
@@ -146,6 +154,29 @@ describe("RepositoryAgent application service", () => {
     expect([...fixture.artifacts.keys()]).toEqual([
       `repository-tasks/${handle.taskId}/agent-runs/${handle.runId}/cancelled.json`,
     ]);
+  });
+
+  test("terminalizes cancellation while preserving a failed cleanup claim", async () => {
+    const fixture = makeFixture({ failSandboxCancel: true });
+    const handle = await Effect.runPromise(fixture.agent.createRepositoryTask({
+      repositoryUrl: "https://github.com/example/repository",
+      task: "Fix one bounded defect",
+    }, { userId: "owner@example.com" }));
+
+    const cancelled = await Effect.runPromise(
+      fixture.agent.cancelRepositoryRun(handle, { userId: "owner@example.com" }),
+    );
+    expect(cancelled.agentRuns[0]).toMatchObject({
+      stage: "cancelled",
+      cleanup: "failed",
+    });
+    const artifact = fixture.artifacts.get(
+      `repository-tasks/${handle.taskId}/agent-runs/${handle.runId}/cancelled.json`,
+    );
+    expect(artifact?.terminal).toMatchObject({
+      status: "cancelled",
+      cancellation: { cleanup: "failed" },
+    });
   });
 
   test("records a safe terminal result if Workflow creation fails", async () => {

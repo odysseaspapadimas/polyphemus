@@ -139,6 +139,7 @@ interface SandboxStub {
   readonly readFile: (path: string, options?: unknown) => Promise<unknown>;
   readonly startProcess: (command: string, options?: unknown) => Promise<unknown>;
   readonly getProcess: (processId: string) => Promise<unknown>;
+  readonly forceKill: () => Promise<void>;
   readonly destroy: () => Promise<void>;
 }
 
@@ -1247,33 +1248,25 @@ const cancelRun = (request: Request, env: SandboxRuntimeEnv) => Effect.gen(funct
     return yield* Effect.fail(new InvalidSandboxRequest({ message: "Invalid sandboxId" }));
   }
   const sandbox = getRunSandbox(env, input.sandboxId);
-  yield* configureRunSandbox(sandbox);
-  const process = yield* getSandboxProcess(sandbox, "get-pi-process", input.processId);
-  let events: readonly PiActivityEvent[] = [];
-  if (process !== null) {
-    const status = yield* sandboxEffect("read-pi-status", () => process.getStatus()).pipe(
-      Effect.flatMap(decodeProcessStatus),
-    );
-    if (status === "starting" || status === "running") {
-      yield* sandboxEffect("kill-pi-process", () => process.kill("SIGTERM"));
-    }
-    const logs = yield* readProcessLogs("get-pi-logs", process).pipe(
-      Effect.match({
-        onFailure: () => ({ stdout: "", stderr: "" }),
-        onSuccess: (value) => value,
-      }),
-    );
-    events = parseEvents(logs.stdout);
-  }
 
+  // Cancellation is the emergency teardown boundary. Do not configure the
+  // Sandbox or wait for process status and logs first: those calls can block
+  // behind the operation the user is trying to stop. Signal the container
+  // synchronously before attempting bounded SDK cleanup; Sandbox.destroy()
+  // deliberately coalesces onto an older teardown even when that call hangs.
+  yield* sandboxEffect("force-kill-sandbox", () => sandbox.forceKill()).pipe(
+    Effect.timeout("5 seconds"),
+    Effect.ignore,
+  );
   const cleanup = yield* sandboxEffect("destroy-sandbox", () => sandbox.destroy()).pipe(
+    Effect.timeout("10 seconds"),
     Effect.match({ onFailure: () => "failed" as const, onSuccess: () => "destroyed" as const }),
   );
   return json({
     sandboxId: input.sandboxId,
     processId: input.processId,
     status: "cancelled",
-    events,
+    events: [],
     cleanup,
   } satisfies SandboxCancelResult);
 });

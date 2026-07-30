@@ -1,4 +1,4 @@
-import type { Sandbox } from "@cloudflare/sandbox";
+import type { Sandbox } from "./Sandbox.ts";
 import * as Cloudflare from "alchemy/Cloudflare";
 
 export const SandboxContainer = Cloudflare.Container<Sandbox>("SandboxContainer", {

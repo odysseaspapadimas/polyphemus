@@ -1,10 +1,9 @@
-import { Sandbox } from "@cloudflare/sandbox";
 import {
   handleSandboxRuntimeRequest,
   type SandboxRuntimeEnv,
 } from "./sandbox-runtime.ts";
 
-export { Sandbox };
+export { Sandbox } from "./Sandbox.ts";
 
 export default {
   fetch(request: Request, env: SandboxRuntimeEnv): Promise<Response> {
