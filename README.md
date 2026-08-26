@@ -41,7 +41,7 @@ The current product and threat model are described in [`docs/mvp-spec.md`](./doc
 ## Stack
 
 - [Effect](https://effect.website/) for application operations, failures, retries, and lifecycle
-- [Pi](https://github.com/badlogic/pi-mono) for the repository agent runtime
+- [Pi](https://github.com/earendil-works/pi) for the repository agent runtime
 - [Alchemy](https://alchemy.run/) for infrastructure as code
 - Cloudflare Workers, Workflows, Durable Objects, Sandbox, R2, D1, and Access
 - TanStack Start, React, and Vite for the product shell
