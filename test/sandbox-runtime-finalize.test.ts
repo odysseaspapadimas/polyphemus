@@ -71,6 +71,8 @@ const runFinalize = async (input: {
   readonly resultPath: typeof PI_RESULT_PATH | typeof LEGACY_PI_RESULT_PATH;
   readonly repositoryUrl?: string;
   readonly managedProcessCleanupResult?: unknown;
+  readonly changedFiles?: readonly string[];
+  readonly changedFilesPayload?: string;
 }): Promise<FinalizeFixture> => {
   const commands: string[] = [];
   let managedProcessCleanups = 0;
@@ -110,7 +112,10 @@ const runFinalize = async (input: {
     async exec(command: string) {
       commands.push(command);
       const stdout = command.includes("'--name-only'")
-        ? "src/value.ts\0"
+        ? input.changedFilesPayload ?? Buffer.from(
+            `${(input.changedFiles ?? ["src/value.ts"]).join("\0")}\0`,
+            "utf8",
+          ).toString("base64")
         : command.includes("'--binary'")
           ? patch
           : "";
@@ -193,10 +198,12 @@ describe("Sandbox Runtime finalization strategy", () => {
     const result = await fixture.response.json() as {
       validated: boolean;
       cleanup: string;
+      changedFiles: string[];
       validation: Array<{ name: string; passed: boolean; stderrExcerpt: string }>;
     };
     expect(result.validated).toBe(false);
     expect(result.cleanup).toBe("destroyed");
+    expect(result.changedFiles).toEqual(["src/value.ts"]);
     expect(result.validation).toContainEqual(expect.objectContaining({
       name: "tests",
       passed: false,
@@ -249,6 +256,59 @@ describe("Sandbox Runtime finalization strategy", () => {
     expect(fixture.commands).toContain(
       `'/usr/local/bin/polyphemus-repository-exec' 'bun' '--config=${REPOSITORY_SAFE_BUNFIG_PATH}' 'test' '--cwd' '/workspace/repository' '${HELD_OUT_TEST_PATH}'`,
     );
+  });
+
+  test("preserves NUL-delimited changed paths across the Sandbox text boundary", async () => {
+    const selection = await Effect.runPromise(selectRepositoryPackageManager(
+      { packageManager: "npm@10.9.8", scripts: {} },
+      ["package-lock.json"],
+    ));
+    const policy = makeValidationPolicy({ selection, scripts: { test: "vitest run" } });
+    const secret = "sandbox-finalize-secret";
+    const authentication = await Effect.runPromise(signValidationPolicy(
+      secret,
+      "sandbox-finalize",
+      policy,
+    ));
+    const changedFiles = ["src/first.ts", "src/line\nbreak.ts"];
+    const fixture = await runFinalize({
+      policy: { version: 1, policy, authentication },
+      packageScript: "vitest run",
+      resultPath: PI_RESULT_PATH,
+      changedFiles,
+    });
+
+    expect(fixture.response.status).toBe(200);
+    await expect(fixture.response.json()).resolves.toMatchObject({ changedFiles });
+    expect(fixture.commands.some((command) =>
+      command.includes("/usr/bin/base64 -w0") && command.includes("changed-files.z"))).toBe(true);
+  });
+
+  test("rejects malformed encoded changed-file evidence", async () => {
+    const selection = await Effect.runPromise(selectRepositoryPackageManager(
+      { packageManager: "npm@10.9.8", scripts: {} },
+      ["package-lock.json"],
+    ));
+    const policy = makeValidationPolicy({ selection, scripts: { test: "vitest run" } });
+    const secret = "sandbox-finalize-secret";
+    const authentication = await Effect.runPromise(signValidationPolicy(
+      secret,
+      "sandbox-finalize",
+      policy,
+    ));
+    const fixture = await runFinalize({
+      policy: { version: 1, policy, authentication },
+      packageScript: "vitest run",
+      resultPath: PI_RESULT_PATH,
+      changedFilesPayload: "not-base64",
+    });
+
+    expect(fixture.response.status).toBe(500);
+    await expect(fixture.response.json()).resolves.toMatchObject({
+      error: "SandboxOperationFailed",
+      operation: "decode-changed-files",
+    });
+    expect(fixture.destroyed).toBe(true);
   });
 
   test("rejects malformed managed-process cleanup results at the Sandbox boundary", async () => {

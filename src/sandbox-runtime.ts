@@ -56,6 +56,9 @@ const NonNegativeInteger = Schema.Number.check(
   Schema.isInt(),
   Schema.isGreaterThanOrEqualTo(0),
 );
+const MAX_CHANGED_FILES_BYTES = 8 * 1024 * 1024;
+const MAX_CHANGED_FILES = 100_000;
+const MAX_REPOSITORY_PATH_BYTES = 4_096;
 const SandboxExecResultSchema = Schema.Struct({
   success: Schema.Boolean,
   exitCode: Schema.Number.check(Schema.isInt()),
@@ -589,6 +592,35 @@ const validationResult = (name: string, command: string, result: ExecResult): Va
   durationMs: result.duration,
   stdoutExcerpt: excerpt(result.stdout),
   stderrExcerpt: excerpt(result.stderr),
+});
+
+const decodeChangedFiles = (
+  input: string,
+): Effect.Effect<readonly string[], SandboxOperationFailed> => Effect.try({
+  try: () => {
+    if (input.length === 0) return [];
+    if (input.length > Math.ceil(MAX_CHANGED_FILES_BYTES / 3) * 4 ||
+        !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(input)) {
+      throw new Error("Changed-file evidence is not canonical base64");
+    }
+    const binary = atob(input);
+    if (btoa(binary) !== input || binary.length > MAX_CHANGED_FILES_BYTES) {
+      throw new Error("Changed-file evidence is not canonical base64");
+    }
+    const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
+    const decoded = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+    if (!decoded.endsWith("\0")) {
+      throw new Error("Changed-file evidence is not NUL terminated");
+    }
+    const paths = decoded.slice(0, -1).split("\0");
+    if (paths.length > MAX_CHANGED_FILES || paths.some((path) =>
+      path.length === 0 || new TextEncoder().encode(path).length > MAX_REPOSITORY_PATH_BYTES
+    )) {
+      throw new Error("Changed-file evidence contains invalid paths");
+    }
+    return paths;
+  },
+  catch: (cause) => SandboxOperationFailed.fromUnknown("decode-changed-files", cause),
 });
 
 const startRun = (request: Request, env: SandboxRuntimeEnv) => Effect.gen(function* () {
@@ -1190,9 +1222,18 @@ const collectFinalResult = (
   }
 
   const gitCommand = evidenceGitCommand;
-  const changedCommand = gitCommand([
-    "diff", "--no-ext-diff", "--no-textconv", "--name-only", "-z", baseSha, "--",
-  ]);
+  const changedFilesEvidencePath = `${CONTROL_DIR}/changed-files.z`;
+  // Sandbox command results are a text boundary and do not preserve NUL bytes.
+  // Seal Git's NUL-delimited path output in base64 before it crosses that
+  // boundary so filenames containing newlines remain unambiguous.
+  const changedCommand = [
+    `rm -f ${shellQuote(changedFilesEvidencePath)}`,
+    `${gitCommand([
+      "diff", "--no-ext-diff", "--no-textconv", "--name-only", "-z", baseSha, "--",
+    ])} > ${shellQuote(changedFilesEvidencePath)}`,
+    `/usr/bin/base64 -w0 ${shellQuote(changedFilesEvidencePath)}`,
+    `rm -f ${shellQuote(changedFilesEvidencePath)}`,
+  ].join(" && ");
   const changed = yield* exec(sandbox, "collect-changed-files", changedCommand, {
     cwd: REPOSITORY_DIR,
     timeout: 30_000,
@@ -1210,6 +1251,7 @@ const collectFinalResult = (
       message: excerpt(diff.stderr || changed.stderr || "Git evidence collection failed"),
     }));
   }
+  const changedFiles = yield* decodeChangedFiles(changed.stdout);
   const diffCheckCommand = gitCommand([
     "diff", "--no-ext-diff", "--no-textconv", "--check",
   ]);
@@ -1230,7 +1272,7 @@ const collectFinalResult = (
     baseSha,
     pi,
     events: parseEvents(logs.stdout),
-    changedFiles: changed.stdout.split("\0").filter((path) => path.length > 0),
+    changedFiles,
     patch: diff.stdout,
     validation,
     validated: validationPolicy.checks.length > 0 &&
