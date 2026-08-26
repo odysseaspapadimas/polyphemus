@@ -554,7 +554,9 @@ const main = async (): Promise<void> => {
 
   const settingsManager = SettingsManager.inMemory({
     compaction: { enabled: false },
-    retry: { enabled: true, maxRetries: 1 },
+    // Retry transient model/provider failures while preserving preceding tool
+    // results, including exact argument-validation feedback for finish_run.
+    retry: { enabled: true, maxRetries: 3 },
   });
   const boundedCommand = makeBoundedCommand(validationCommands);
   // The SDK declares customTools as an invariant heterogeneous array even though
@@ -672,8 +674,11 @@ const main = async (): Promise<void> => {
 
   await Bun.write(RESULT_PATH, JSON.stringify(result, null, 2));
   emit({ type: "pi.result", status: result.status, resultPath: RESULT_PATH });
-  if (!didFinish) process.exitCode = 2;
-  if (timedOut) process.exit(2);
+  // A missing finish_run call is represented by the persisted fallback result,
+  // not by a failed managed process. Let independent finalization preserve and
+  // validate any usable Patch. A hard exit is still required when an aborted
+  // model transport leaves its Promise unsettled.
+  if (timedOut) process.exit(0);
 };
 
 main().catch(async () => {
@@ -681,12 +686,17 @@ main().catch(async () => {
     fallbackResult("The repository agent runner failed."),
     "runner_error",
   );
+  let persisted = false;
   try {
     await Bun.write(RESULT_PATH, JSON.stringify(result, null, 2));
+    emit({ type: "pi.result", status: result.status, resultPath: RESULT_PATH });
+    persisted = true;
   } catch {
     // The caller still receives the fatal stderr line when the result path is unavailable.
   }
   emit({ type: "pi.activity", stage: "finishing", label: "Repository agent failed", isError: true });
   console.error("Repository agent runner failed");
-  process.exitCode = 1;
+  // Once a safe fallback is durable, finalization—not the process exit code—is
+  // authoritative for Patch evidence, validation, and cleanup.
+  process.exitCode = persisted ? 0 : 1;
 });

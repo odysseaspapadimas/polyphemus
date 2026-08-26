@@ -89,7 +89,7 @@ Raw chain-of-thought and unbounded terminal output are never user-facing progres
 
 ## Run Result
 
-Every terminal Agent Run produces a structured Run Result, including safe partial evidence when execution fails or is cancelled.
+Every terminal Agent Run produces a structured Run Result, including safe partial evidence when execution fails or is cancelled. Exhausted model retries, wall-clock exhaustion, or a missing valid `finish_run` call produce a conservative fallback result and still proceed through independent Patch collection, validation, and cleanup rather than converting durable partial evidence into an infrastructure failure.
 
 A Run Result contains:
 

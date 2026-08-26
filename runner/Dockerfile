@@ -56,6 +56,11 @@ WORKDIR /opt/polyphemus
 COPY package.json bun.lock ./
 RUN bun install --production --frozen-lockfile --ignore-scripts
 COPY main.ts validation-commands.ts repository-path.ts repository-files.ts ./
-RUN chmod -R a-w /opt/polyphemus
+RUN chmod -R a-w /opt/polyphemus \
+  && install -d -m 0700 -o 10002 -g 20000 /workspace/result \
+  && POLYPHEMUS_TASK=container-build-smoke /usr/local/bin/polyphemus-agent-exec \
+    bun --config=/dev/null /opt/polyphemus/main.ts >/dev/null 2>&1 \
+  && bun -e 'const result = await Bun.file("/workspace/result/pi-result.json").json(); if (result.terminationReason !== "runner_error" || result.runRequest !== "container-build-smoke") process.exit(1)' \
+  && rm -rf /workspace/result
 
 WORKDIR /container-server
