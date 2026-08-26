@@ -55,16 +55,8 @@ import {
   type RepositoryAgentPorts,
 } from "./RepositoryAgent.ts";
 import { RepositoryAgentBackendFailed } from "./RepositoryAgentError.ts";
-import PullRequestPublicationWorkflow, {
-  PullRequestPublicationWorkflowV2,
-  PullRequestPublicationWorkflowV3,
-  PullRequestPublicationWorkflowV4,
-} from "./PullRequestPublicationWorkflow.ts";
-import RepositoryRunWorkflow, {
-  RepositoryRunWorkflowV2,
-  RepositoryRunWorkflowV3,
-  RepositoryRunWorkflowV4,
-} from "./RepositoryRunWorkflow.ts";
+import PullRequestPublicationWorkflow from "./PullRequestPublicationWorkflow.ts";
+import RepositoryRunWorkflow from "./RepositoryRunWorkflow.ts";
 import RepositoryTaskCoordinator from "./RepositoryTaskCoordinator.ts";
 import { RepositoryTaskIndexDatabase } from "./RepositoryTaskIndexDatabase.ts";
 import { RunArtifactsBucket } from "./RunArtifactsBucket.ts";
@@ -99,13 +91,7 @@ export class RepositoryAgentBackend extends Cloudflare.Worker<
   RepositoryAgentBackendShape,
   | RepositoryTaskCoordinator
   | RepositoryRunWorkflow
-  | RepositoryRunWorkflowV2
-  | RepositoryRunWorkflowV3
-  | RepositoryRunWorkflowV4
   | PullRequestPublicationWorkflow
-  | PullRequestPublicationWorkflowV2
-  | PullRequestPublicationWorkflowV3
-  | PullRequestPublicationWorkflowV4
 >()("RepositoryAgentBackend") {}
 
 const rpcInputError = (error: InvalidRepositoryAgentRpcData): InvalidRepositoryTaskData =>
@@ -130,7 +116,7 @@ export const RepositoryAgentBackendLive = RepositoryAgentBackend.make(
     name: "polyphemus-repository-agent",
     main: import.meta.url,
     url: false,
-    compatibility: { date: "2026-07-28", flags: ["nodejs_compat"] },
+    compatibility: { date: "2026-07-11", flags: ["nodejs_compat"] },
     observability: { enabled: true, logs: { enabled: true, invocationLogs: true } },
     env: { SandboxRuntimeWorker },
   },
@@ -138,16 +124,8 @@ export const RepositoryAgentBackendLive = RepositoryAgentBackend.make(
     // These logical IDs are unchanged so the existing coordinator namespace,
     // Workflow, D1 projection, and R2 artifacts remain authoritative.
     const coordinators = yield* RepositoryTaskCoordinator;
-    // Keep legacy resources registered for retained instances, while all new
-    // work targets explicit immutable V4 Workflow resources.
-    yield* PullRequestPublicationWorkflow;
-    yield* PullRequestPublicationWorkflowV2;
-    yield* PullRequestPublicationWorkflowV3;
-    yield* RepositoryRunWorkflow;
-    yield* RepositoryRunWorkflowV2;
-    yield* RepositoryRunWorkflowV3;
-    const publicationWorkflow = yield* PullRequestPublicationWorkflowV4;
-    const workflow = yield* RepositoryRunWorkflowV4;
+    const publicationWorkflow = yield* PullRequestPublicationWorkflow;
+    const workflow = yield* RepositoryRunWorkflow;
     const bucket = yield* Cloudflare.R2.ReadWriteBucket(RunArtifactsBucket);
     const indexDatabaseResource = yield* RepositoryTaskIndexDatabase;
     const indexDatabase = yield* Cloudflare.D1.QueryDatabase(indexDatabaseResource);

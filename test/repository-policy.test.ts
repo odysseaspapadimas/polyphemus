@@ -38,8 +38,8 @@ describe("public repository policy", () => {
       {
         packageManager: "bun@1.3.12",
         files: ["bun.lock"] as const,
-        install: "bun --config /workspace/package-manager-config/bunfig.toml install --frozen-lockfile --ignore-scripts --cwd /workspace/repository",
-        renderedInstall: "'/usr/local/bin/polyphemus-repository-exec' 'bun' '--config' '/workspace/package-manager-config/bunfig.toml' 'install' '--frozen-lockfile' '--ignore-scripts' '--cwd' '/workspace/repository'",
+        install: "bun --config=/workspace/package-manager-config/bunfig.toml install --frozen-lockfile --ignore-scripts --cwd /workspace/repository",
+        renderedInstall: "'/usr/local/bin/polyphemus-repository-exec' 'bun' '--config=/workspace/package-manager-config/bunfig.toml' 'install' '--frozen-lockfile' '--ignore-scripts' '--cwd' '/workspace/repository'",
       },
       {
         packageManager: "npm@10.9.8",

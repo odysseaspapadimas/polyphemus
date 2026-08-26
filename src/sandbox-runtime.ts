@@ -52,6 +52,10 @@ import {
 } from "./sandbox-config.ts";
 
 const NonNegativeNumber = Schema.Number.check(Schema.isGreaterThanOrEqualTo(0));
+const NonNegativeInteger = Schema.Number.check(
+  Schema.isInt(),
+  Schema.isGreaterThanOrEqualTo(0),
+);
 const SandboxExecResultSchema = Schema.Struct({
   success: Schema.Boolean,
   exitCode: Schema.Number.check(Schema.isInt()),
@@ -139,6 +143,7 @@ interface SandboxStub {
   readonly readFile: (path: string, options?: unknown) => Promise<unknown>;
   readonly startProcess: (command: string, options?: unknown) => Promise<unknown>;
   readonly getProcess: (processId: string) => Promise<unknown>;
+  readonly killAllProcesses: () => Promise<unknown>;
   readonly forceKill: () => Promise<void>;
   readonly destroy: () => Promise<void>;
 }
@@ -341,10 +346,18 @@ const configureRunSandbox = (sandbox: SandboxStub) => sandboxEffect(
   () => sandbox.configure === undefined
     ? Promise.resolve()
     : sandbox.configure({
-        transport: "rpc",
+        // This workload does not use RPC-only tunnels. The HTTP control path
+        // remains responsive while the agent process has an active model call;
+        // repeated RPC log reads can strand the Sandbox Durable Object.
+        transport: "http",
         keepAlive: true,
         labels: { application: "polyphemus", workload: "agent-run" },
       }),
+).pipe(
+  Effect.timeout("15 seconds"),
+  Effect.mapError((cause) => cause instanceof SandboxOperationFailed
+    ? cause
+    : SandboxOperationFailed.fromUnknown("configure-sandbox", cause)),
 );
 
 const validSandboxId = (sandboxId: string): boolean =>
@@ -435,15 +448,16 @@ const stopRepositoryProcesses = (
   }
 });
 
-const stopAgentProcesses = (
+const stopManagedProcesses = (
   sandbox: ReturnType<typeof getRunSandbox>,
   operation: string,
-) => exec(
-  sandbox,
-  operation,
-  "/usr/bin/pkill -KILL -u 10002 >/dev/null 2>&1 || true",
-  { timeout: 10_000 },
-).pipe(Effect.asVoid);
+) => sandboxEffect(operation, () => sandbox.killAllProcesses()).pipe(
+  Effect.flatMap(Schema.decodeUnknownEffect(NonNegativeInteger)),
+  Effect.mapError((cause) => cause instanceof SandboxOperationFailed
+    ? cause
+    : SandboxOperationFailed.fromUnknown(operation, cause)),
+  Effect.asVoid,
+);
 
 const readTextFile = (
   sandbox: ReturnType<typeof getRunSandbox>,
@@ -459,7 +473,11 @@ const readProcessLogs = (
   process: SandboxProcess,
 ): Effect.Effect<SandboxProcessLogs, SandboxOperationFailed> =>
   sandboxEffect(operation, () => process.getLogs()).pipe(
+    Effect.timeout("15 seconds"),
     Effect.flatMap((result) => decodeSandboxProcessLogs(operation, result)),
+    Effect.mapError((cause) => cause instanceof SandboxOperationFailed
+      ? cause
+      : SandboxOperationFailed.fromUnknown(operation, cause)),
   );
 
 const createDirectory = (
@@ -549,9 +567,13 @@ const getSandboxProcess = (
   operation: string,
   processId: string,
 ) => sandboxEffect(operation, () => sandbox.getProcess(processId)).pipe(
+  Effect.timeout("15 seconds"),
   Effect.flatMap((process) => process === null
     ? Effect.succeed(null)
     : decodeSandboxProcess(operation, process, processId)),
+  Effect.mapError((cause) => cause instanceof SandboxOperationFailed
+    ? cause
+    : SandboxOperationFailed.fromUnknown(operation, cause)),
 );
 
 const decodeProcessStatus = (input: unknown) =>
@@ -825,8 +847,10 @@ const startRun = (request: Request, env: SandboxRuntimeEnv) => Effect.gen(functi
   }
 
   const processId = `pi-${input.sandboxId}`;
+  // Bun requires the long option's value in the same argument. With
+  // `--config PATH`, Bun exits successfully without executing the entrypoint.
   const runnerCommand =
-    `${AGENT_EXECUTOR} bun --config ${REPOSITORY_SAFE_BUNFIG_PATH} /opt/polyphemus/main.ts`;
+    `${AGENT_EXECUTOR} bun --config=${REPOSITORY_SAFE_BUNFIG_PATH} /opt/polyphemus/main.ts`;
   yield* startSandboxProcess(sandbox, processId, runnerCommand, {
     cwd: RUNNER_DIR,
     processId,
@@ -953,7 +977,10 @@ const collectFinalResult = (
     }));
   }
   yield* stopRepositoryProcesses(sandbox, "cleanup-runner-repository-processes");
-  yield* stopAgentProcesses(sandbox, "cleanup-runner-agent-processes");
+  // Use the Sandbox process lifecycle API rather than killing the agent UID
+  // from an exec session. A UID-wide pkill can terminate the process wrapper
+  // serving that same exec and leave the request blocked indefinitely.
+  yield* stopManagedProcesses(sandbox, "cleanup-runner-agent-processes");
 
   const storedResult = yield* readTextFile(sandbox, "read-pi-result", PI_RESULT_PATH);
   const pi = yield* Effect.try({
@@ -1071,8 +1098,7 @@ const collectFinalResult = (
       }));
     }
     const heldOutCommand = repositoryCommand("bun", [
-      "--config",
-      REPOSITORY_SAFE_BUNFIG_PATH,
+      `--config=${REPOSITORY_SAFE_BUNFIG_PATH}`,
       "test",
       "--cwd",
       REPOSITORY_DIR,
@@ -1101,7 +1127,7 @@ const collectFinalResult = (
     }));
   }
   yield* stopRepositoryProcesses(sandbox, "cleanup-final-repository-processes");
-  yield* stopAgentProcesses(sandbox, "cleanup-final-agent-processes");
+  yield* stopManagedProcesses(sandbox, "cleanup-final-agent-processes");
   const frozen = yield* exec(
     sandbox,
     "freeze-repository-worktree",
@@ -1274,7 +1300,7 @@ const cancelRun = (request: Request, env: SandboxRuntimeEnv) => Effect.gen(funct
 const route = (request: Request, env: SandboxRuntimeEnv) => {
   const url = new URL(request.url);
   if (url.pathname === "/health" && request.method === "GET") {
-    return Effect.succeed(json({ status: "ok", sandboxTransport: "rpc" }));
+    return Effect.succeed(json({ status: "ok", sandboxTransport: "http" }));
   }
 
   const authorization = request.headers.get("Authorization");

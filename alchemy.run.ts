@@ -26,7 +26,7 @@ export const Website = Effect.gen(function* () {
     url: true,
     dev: { port: 1339, strictPort: true },
     compatibility: {
-      date: "2026-07-28",
+      date: "2026-07-11",
       flags: ["nodejs_compat"],
     },
     env: {

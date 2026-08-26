@@ -14,7 +14,7 @@ export const SandboxRuntimeWorker = Effect.gen(function* () {
     name: "polyphemus-sandbox-runtime",
     main: `${import.meta.dirname}/sandbox-runtime-worker.ts`,
     url: false,
-    compatibility: { date: "2026-07-28", flags: ["nodejs_compat"] },
+    compatibility: { date: "2026-07-11", flags: ["nodejs_compat"] },
     observability: { enabled: true, logs: { enabled: true, invocationLogs: true } },
     env: {
       MODEL_PROXY_ORIGIN,

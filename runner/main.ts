@@ -79,8 +79,7 @@ const runRepositoryFileOperation = async (
   const subprocess = Bun.spawn([
     REPOSITORY_EXECUTOR,
     "bun",
-    "--config",
-    REPOSITORY_SAFE_BUNFIG_PATH,
+    `--config=${REPOSITORY_SAFE_BUNFIG_PATH}`,
     REPOSITORY_FILES,
     operation,
     ...args,
@@ -633,22 +632,30 @@ const main = async (): Promise<void> => {
   });
 
   let timedOut = false;
-  const timeout = setTimeout(() => {
-    timedOut = true;
-    void session.abort();
-  }, RUN_TIMEOUT_MS);
+  let timeout: ReturnType<typeof setTimeout> | undefined;
 
   try {
     emit({ type: "pi.activity", stage: "starting", label: "Pi session configured" });
-    await session.prompt([
+    const prompt = session.prompt([
       "Complete this repository task:",
       TASK,
       "",
       "Proceed with reasonable assumptions unless the task is impossible or unsafe.",
       "Keep the patch focused and call finish_run as your final action.",
     ].join("\n"));
+    const promptOutcome = await new Promise<"completed" | "timed-out">((resolve, reject) => {
+      timeout = setTimeout(() => resolve("timed-out"), RUN_TIMEOUT_MS);
+      void prompt.then(() => resolve("completed"), reject);
+    });
+    if (promptOutcome === "timed-out") {
+      timedOut = true;
+      // The model transport does not always settle its Promise after abort.
+      // Continue to durable result persistence; a hard exit below prevents the
+      // unresolved transport from keeping the managed process alive forever.
+      void session.abort();
+    }
   } finally {
-    clearTimeout(timeout);
+    if (timeout !== undefined) clearTimeout(timeout);
     unsubscribe();
     session.dispose();
     await cleanupRepositoryProcesses();
@@ -666,6 +673,7 @@ const main = async (): Promise<void> => {
   await Bun.write(RESULT_PATH, JSON.stringify(result, null, 2));
   emit({ type: "pi.result", status: result.status, resultPath: RESULT_PATH });
   if (!didFinish) process.exitCode = 2;
+  if (timedOut) process.exit(2);
 };
 
 main().catch(async () => {

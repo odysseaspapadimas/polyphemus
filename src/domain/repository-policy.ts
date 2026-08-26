@@ -365,8 +365,7 @@ const installExecutionCommand = (
   switch (selection.packageManager) {
     case "bun":
       return packageManagerExecutionCommand(selection, [
-        "--config",
-        REPOSITORY_SAFE_BUNFIG_PATH,
+        `--config=${REPOSITORY_SAFE_BUNFIG_PATH}`,
         "install",
         "--frozen-lockfile",
         "--ignore-scripts",

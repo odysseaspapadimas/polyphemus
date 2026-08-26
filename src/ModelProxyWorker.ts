@@ -12,7 +12,7 @@ export const ModelProxyWorker = Effect.gen(function* () {
     name: "polyphemus-model-proxy",
     main: `${import.meta.dirname}/model-proxy.ts`,
     url: true,
-    compatibility: { date: "2026-07-28", flags: ["nodejs_compat"] },
+    compatibility: { date: "2026-07-11", flags: ["nodejs_compat"] },
     observability: { enabled: true, logs: { enabled: true, invocationLogs: false } },
     env: {
       OPENCODE_API_KEY: openCodeApiKey,

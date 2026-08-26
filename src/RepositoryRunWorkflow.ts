@@ -3,7 +3,7 @@ import * as Cause from "effect/Cause";
 import * as Config from "effect/Config";
 import * as Effect from "effect/Effect";
 import { RunArtifactsBucket } from "./RunArtifactsBucket.ts";
-import { PullRequestPublicationWorkflowV4 } from "./PullRequestPublicationWorkflow.ts";
+import PullRequestPublicationWorkflow from "./PullRequestPublicationWorkflow.ts";
 import { SandboxRuntimeWorker } from "./SandboxRuntimeWorker.ts";
 import {
   decodeWorkflowInput,
@@ -56,7 +56,7 @@ const failedArtifactKey = (taskId: string, runId: string): string =>
 
 const makeRepositoryRunWorkflow = Effect.gen(function* () {
   const taskCoordinators = yield* RepositoryTaskCoordinator;
-  const publicationWorkflow = yield* PullRequestPublicationWorkflowV4;
+  const publicationWorkflow = yield* PullRequestPublicationWorkflow;
   const bucket = yield* Cloudflare.R2.ReadWriteBucket(RunArtifactsBucket);
   const sandboxRuntimeResource = yield* SandboxRuntimeWorker;
   const fetchSandboxRuntime = yield* Cloudflare.Workers.Fetch(sandboxRuntimeResource);
@@ -77,10 +77,23 @@ const makeRepositoryRunWorkflow = Effect.gen(function* () {
       Effect.gen(function* () {
         const cancellation = yield* Cloudflare.Workflows.task(
           "cleanup-failed-agent-run",
-          capture(sandboxClient.cancel(processHandle)),
+          captureCause(sandboxClient.cancel(processHandle).pipe(
+            Effect.timeout("20 seconds"),
+          )),
+          {
+            // Emergency cleanup is idempotent, but overlapping retries can
+            // queue behind the same unhealthy Sandbox Durable Object.
+            retries: { limit: 0, delay: "2 seconds", backoff: "constant" },
+            timeout: "30 seconds",
+          },
         );
         const cleanup = cancellation.ok ? cancellation.value.cleanup : null;
-        const safeEvents = cancellation.ok ? cancellation.value.events : events;
+        // Immediate cancellation deliberately skips process-log inspection so
+        // it cannot block teardown. Preserve the last events observed before
+        // cleanup when cancellation has no newer activity.
+        const safeEvents = cancellation.ok && cancellation.value.events.length > 0
+          ? cancellation.value.events
+          : events;
         const failure: SafeRunFailure = {
           code: "AgentRunFailed",
           message,
@@ -165,7 +178,16 @@ const makeRepositoryRunWorkflow = Effect.gen(function* () {
     for (let poll = 0; poll < MAX_STATUS_POLLS; poll += 1) {
       const observed = yield* Cloudflare.Workflows.task(
         `observe-agent-${String(poll + 1).padStart(3, "0")}`,
-        capture(sandboxClient.status(processHandle)),
+        captureCause(sandboxClient.status(processHandle).pipe(
+          Effect.timeout("20 seconds"),
+        )),
+        {
+          // A poll is observational. Fail the run and enter emergency cleanup
+          // instead of retrying a request that may still be stuck in the
+          // Sandbox control plane.
+          retries: { limit: 0, delay: "2 seconds", backoff: "constant" },
+          timeout: "30 seconds",
+        },
       );
       if (!observed.ok) {
         return yield* persistFailure(
@@ -215,18 +237,23 @@ const makeRepositoryRunWorkflow = Effect.gen(function* () {
       }).pipe(Effect.as({ recorded: true as const }), Effect.orDie),
     );
 
-    const finalized = yield* captureCause(Cloudflare.Workflows.task(
+    const finalized = yield* Cloudflare.Workflows.task(
       "finalize-and-validate-run",
-      sandboxClient.finalize(processHandle).pipe(Effect.orDie),
+      // Resolve every application or transport failure as durable step data.
+      // The inner budget expires before the Workflow attempt so cleanup can
+      // force-kill the Sandbox; the step therefore cannot retry concurrently
+      // against a finalization request that is still running.
+      captureCause(sandboxClient.finalize(processHandle).pipe(
+        Effect.timeout("28 minutes"),
+      )),
       {
         // Finalization removes and reinstalls dependencies before running up to
-        // three five-minute checks. The default ten-minute attempt budget is
-        // too short, and retrying this destructive boundary against the same
-        // Sandbox can overlap work rather than recover it.
-        retries: { limit: 1, delay: "2 seconds", backoff: "constant" },
+        // three five-minute checks. It is destructive and scoped to one live
+        // Sandbox, so a timed-out attempt must never overlap a retry.
+        retries: { limit: 0, delay: "2 seconds", backoff: "constant" },
         timeout: "30 minutes",
       },
-    ));
+    );
     if (!finalized.ok) {
       return yield* persistFailure("validating", finalized.message, lastStatus.events);
     }
@@ -356,23 +383,5 @@ const makeRepositoryRunWorkflow = Effect.gen(function* () {
 
 export default class RepositoryRunWorkflow extends Cloudflare.Workflow<RepositoryRunWorkflow>()(
   "RepositoryRunWorkflow",
-  makeRepositoryRunWorkflow,
-) {}
-
-/** Versioned resource: new Agent Runs must execute the latest immutable Workflow code. */
-export class RepositoryRunWorkflowV2 extends Cloudflare.Workflow<RepositoryRunWorkflowV2>()(
-  "RepositoryRunWorkflowV2",
-  makeRepositoryRunWorkflow,
-) {}
-
-/** V3 supplies explicit timeout values for every retry-configured checkpoint. */
-export class RepositoryRunWorkflowV3 extends Cloudflare.Workflow<RepositoryRunWorkflowV3>()(
-  "RepositoryRunWorkflowV3",
-  makeRepositoryRunWorkflow,
-) {}
-
-/** V4 launches the commit-timestamp-safe publication Workflow. */
-export class RepositoryRunWorkflowV4 extends Cloudflare.Workflow<RepositoryRunWorkflowV4>()(
-  "RepositoryRunWorkflowV4",
   makeRepositoryRunWorkflow,
 ) {}

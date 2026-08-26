@@ -490,21 +490,3 @@ export default class PullRequestPublicationWorkflow extends Cloudflare.Workflow<
   "PullRequestPublicationWorkflow",
   makePullRequestPublicationWorkflow,
 ) {}
-
-/** Versioned resource: Cloudflare Workflow instances remain pinned to immutable code versions. */
-export class PullRequestPublicationWorkflowV2 extends Cloudflare.Workflow<PullRequestPublicationWorkflowV2>()(
-  "PullRequestPublicationWorkflowV2",
-  makePullRequestPublicationWorkflow,
-) {}
-
-/** V3 supplies explicit timeout values for every retry-configured checkpoint. */
-export class PullRequestPublicationWorkflowV3 extends Cloudflare.Workflow<PullRequestPublicationWorkflowV3>()(
-  "PullRequestPublicationWorkflowV3",
-  makePullRequestPublicationWorkflow,
-) {}
-
-/** V4 verifies GitHub's whole-second commit timestamp representation semantically. */
-export class PullRequestPublicationWorkflowV4 extends Cloudflare.Workflow<PullRequestPublicationWorkflowV4>()(
-  "PullRequestPublicationWorkflowV4",
-  makePullRequestPublicationWorkflow,
-) {}

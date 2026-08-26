@@ -24,12 +24,14 @@ describe("Sandbox Runtime start adapter", () => {
     const commands: string[] = [];
     const executions: Array<{ command: string; options: unknown }> = [];
     let configured = false;
+    let sandboxConfiguration: unknown;
     let startedCommand: string | undefined;
     let startedOptions: Record<string, unknown> | undefined;
 
     const sandbox = {
-      async configure() {
+      async configure(configuration: unknown) {
         configured = true;
+        sandboxConfiguration = configuration;
       },
       async mkdir(path: string, options?: unknown) {
         expect(configured).toBe(true);
@@ -125,6 +127,11 @@ describe("Sandbox Runtime start adapter", () => {
       baseSha,
       initialTestExitCode: 0,
     });
+    expect(sandboxConfiguration).toEqual({
+      transport: "http",
+      keepAlive: true,
+      labels: { application: "polyphemus", workload: "agent-run" },
+    });
     expect(commands.some((command) => command.includes(
       "'/usr/local/bin/polyphemus-repository-exec' 'corepack' 'pnpm@11.17.0' 'install' '--frozen-lockfile' '--ignore-scripts' '--ignore-pnpmfile'",
     ))).toBe(true);
@@ -138,7 +145,7 @@ describe("Sandbox Runtime start adapter", () => {
       command.includes("'/bin/sh' '-c' 'vitest'"));
     expect(baseline?.options).toMatchObject({ timeout: 300_000 });
     expect(startedCommand).toBe(
-      `/usr/local/bin/polyphemus-agent-exec bun --config ${REPOSITORY_SAFE_BUNFIG_PATH} /opt/polyphemus/main.ts`,
+      `/usr/local/bin/polyphemus-agent-exec bun --config=${REPOSITORY_SAFE_BUNFIG_PATH} /opt/polyphemus/main.ts`,
     );
     expect(startedOptions?.cwd).toBe("/opt/polyphemus");
     const runnerEnvironment = startedOptions?.env as Record<string, string>;

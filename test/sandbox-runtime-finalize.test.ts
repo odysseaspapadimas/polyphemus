@@ -61,6 +61,7 @@ interface FinalizeFixture {
   readonly response: Response;
   readonly commands: readonly string[];
   readonly files: ReadonlyMap<string, string>;
+  readonly managedProcessCleanups: number;
   readonly destroyed: boolean;
 }
 
@@ -69,8 +70,10 @@ const runFinalize = async (input: {
   readonly packageScript: string;
   readonly resultPath: typeof PI_RESULT_PATH | typeof LEGACY_PI_RESULT_PATH;
   readonly repositoryUrl?: string;
+  readonly managedProcessCleanupResult?: unknown;
 }): Promise<FinalizeFixture> => {
   const commands: string[] = [];
+  let managedProcessCleanups = 0;
   let destroyed = false;
   const files = new Map<string, string>([
     [BASE_SHA_PATH, `${baseSha}\n`],
@@ -132,6 +135,10 @@ const runFinalize = async (input: {
         async kill() {},
       };
     },
+    async killAllProcesses() {
+      managedProcessCleanups += 1;
+      return input.managedProcessCleanupResult ?? 0;
+    },
     async destroy() { destroyed = true; },
   };
   const secret = "sandbox-finalize-secret";
@@ -154,7 +161,13 @@ const runFinalize = async (input: {
       }),
     },
   ), env);
-  return { response, commands, files, get destroyed() { return destroyed; } };
+  return {
+    response,
+    commands,
+    files,
+    get managedProcessCleanups() { return managedProcessCleanups; },
+    get destroyed() { return destroyed; },
+  };
 };
 
 describe("Sandbox Runtime finalization strategy", () => {
@@ -195,6 +208,8 @@ describe("Sandbox Runtime finalization strategy", () => {
     expect(fixture.commands.some((command) => command.includes(
       "--git-dir=/workspace/git-metadata",
     ))).toBe(true);
+    expect(fixture.commands.some((command) => command.includes("pkill"))).toBe(false);
+    expect(fixture.managedProcessCleanups).toBe(2);
     expect(fixture.destroyed).toBe(true);
   });
 
@@ -232,8 +247,36 @@ describe("Sandbox Runtime finalization strategy", () => {
       command.includes(`chmod 0750 '${HELD_OUT_DIR}'`) &&
       command.includes(`chmod 0440 '${HELD_OUT_TEST_PATH}'`))).toBe(true);
     expect(fixture.commands).toContain(
-      `'/usr/local/bin/polyphemus-repository-exec' 'bun' '--config' '${REPOSITORY_SAFE_BUNFIG_PATH}' 'test' '--cwd' '/workspace/repository' '${HELD_OUT_TEST_PATH}'`,
+      `'/usr/local/bin/polyphemus-repository-exec' 'bun' '--config=${REPOSITORY_SAFE_BUNFIG_PATH}' 'test' '--cwd' '/workspace/repository' '${HELD_OUT_TEST_PATH}'`,
     );
+  });
+
+  test("rejects malformed managed-process cleanup results at the Sandbox boundary", async () => {
+    const selection = await Effect.runPromise(selectRepositoryPackageManager(
+      { packageManager: "npm@10.9.8", scripts: {} },
+      ["package-lock.json"],
+    ));
+    const policy = makeValidationPolicy({ selection, scripts: { test: "vitest run" } });
+    const secret = "sandbox-finalize-secret";
+    const authentication = await Effect.runPromise(signValidationPolicy(
+      secret,
+      "sandbox-finalize",
+      policy,
+    ));
+    const fixture = await runFinalize({
+      policy: { version: 1, policy, authentication },
+      packageScript: "vitest run",
+      resultPath: PI_RESULT_PATH,
+      managedProcessCleanupResult: "zero",
+    });
+
+    expect(fixture.response.status).toBe(500);
+    await expect(fixture.response.json()).resolves.toMatchObject({
+      error: "SandboxOperationFailed",
+      operation: "cleanup-runner-agent-processes",
+    });
+    expect(fixture.managedProcessCleanups).toBe(1);
+    expect(fixture.destroyed).toBe(true);
   });
 
   test("rejects pre-strategy runs instead of issuing legacy validated claims", async () => {
