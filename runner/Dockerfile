@@ -34,11 +34,23 @@ RUN groupadd --gid 20000 polyphemus-workspace \
 COPY --from=repository-exec-build /tmp/polyphemus-repository-exec /usr/local/bin/polyphemus-repository-exec
 COPY --from=repository-exec-build /tmp/polyphemus-repository-cleanup /usr/local/bin/polyphemus-repository-cleanup
 COPY agent-exec.sh /usr/local/bin/polyphemus-agent-exec
-RUN chown root:root /usr/local/bin/polyphemus-repository-exec \
+# Pi may elevate only through the two fixed helpers. Each helper immediately
+# constrains the operation or drops to the credential-free repository identity.
+RUN find / -xdev -type f -perm /6000 -exec chmod a-s {} + \
+  && chown root:root /usr/local/bin/polyphemus-repository-exec \
     /usr/local/bin/polyphemus-repository-cleanup /usr/local/bin/polyphemus-agent-exec \
   && chmod 4755 /usr/local/bin/polyphemus-repository-exec \
     /usr/local/bin/polyphemus-repository-cleanup \
-  && chmod 0755 /usr/local/bin/polyphemus-agent-exec
+  && chmod 0755 /usr/local/bin/polyphemus-agent-exec \
+  && /usr/local/bin/polyphemus-agent-exec \
+    /usr/local/bin/polyphemus-repository-exec /usr/bin/true \
+  && { setpriv --reuid=10001 --regid=20000 --clear-groups sleep 30 & repository_pid=$!; \
+    sleep 0.1; \
+    /usr/local/bin/polyphemus-agent-exec /usr/local/bin/polyphemus-repository-cleanup \
+      && ! kill -0 "$repository_pid" 2>/dev/null; smoke_status=$?; \
+    wait "$repository_pid" 2>/dev/null || true; \
+    test "$smoke_status" -eq 0; \
+  }
 
 WORKDIR /opt/polyphemus
 COPY package.json bun.lock ./

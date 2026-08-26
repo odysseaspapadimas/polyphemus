@@ -7,8 +7,7 @@ exec /usr/bin/setpriv \
   --reuid=10002 \
   --regid=20000 \
   --clear-groups \
-  --bounding-set=-all \
-  --no-new-privs \
+  --bounding-set=-all,+setuid,+setgid,+kill \
   -- /usr/bin/env -i \
     PATH=/usr/local/bin:/usr/bin:/bin \
     HOME=/home/polyphemus-agent \

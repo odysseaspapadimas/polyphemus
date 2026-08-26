@@ -12,5 +12,7 @@ export const SandboxContainer = Cloudflare.Container<Sandbox>("SandboxContainer"
   // Leave room for rollout overlap and independent Repository Tasks. Each
   // Repository Task still enforces at most one active Agent Run.
   maxInstances: 3,
+  // Prototype deployments should replace the full container fleet immediately.
+  rollout: { strategy: "immediate", kind: "full_auto" },
   observability: { logs: { enabled: true } },
 });
