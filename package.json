@@ -23,7 +23,7 @@
     "@tanstack/react-query": "5.101.2",
     "@tanstack/react-router": "1.170.17",
     "@tanstack/react-start": "1.168.27",
-    "alchemy": "https://pkg.ing/alchemy/98209fc",
+    "alchemy": "2.0.0-beta.65",
     "effect": "4.0.0-beta.102",
     "lucide-react": "1.24.0",
     "react": "19.2.7",
