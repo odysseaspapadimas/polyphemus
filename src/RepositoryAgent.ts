@@ -4,6 +4,10 @@ import {
   decodeAccessIdentity,
   type ProductIdentity,
 } from "./domain/product-identity.ts";
+import {
+  type RetryPullRequestPublicationInput,
+  type StartPullRequestPublicationInput,
+} from "./domain/pull-request-publication.ts";
 import { parsePublicGithubRepository } from "./domain/repository-policy.ts";
 import {
   decodeRepositoryRunHandle,
@@ -27,6 +31,7 @@ import {
 } from "./domain/repository-task-index.ts";
 import type { SandboxCancelResult } from "./domain/sandbox-run.ts";
 import { RepositoryAgentBackendFailed } from "./RepositoryAgentError.ts";
+import { RunAdmissionRejected } from "./RunAdmissionCoordinator.ts";
 
 export type RepositoryAgentApplicationError =
   | import("./domain/product-identity.ts").InvalidProductIdentity
@@ -34,9 +39,16 @@ export type RepositoryAgentApplicationError =
   | RepositoryTaskConflict
   | RepositoryTaskNotFound
   | RepositoryTaskIndexFailed
-  | RepositoryAgentBackendFailed;
+  | RepositoryAgentBackendFailed
+  | RunAdmissionRejected;
 
 export interface RepositoryAgentPorts<R = never> {
+  readonly acquireRunAdmission: (
+    input: { readonly ownerId: string; readonly runId: string; readonly now: string },
+  ) => Effect.Effect<void, RepositoryAgentApplicationError, R>;
+  readonly releaseRunAdmission: (
+    input: { readonly ownerId: string; readonly runId: string; readonly now: string },
+  ) => Effect.Effect<void, never, R>;
   readonly createTask: (
     input: AddAgentRunInput,
   ) => Effect.Effect<RepositoryTaskSnapshot, RepositoryAgentApplicationError, R>;
@@ -64,6 +76,12 @@ export interface RepositoryAgentPorts<R = never> {
   ) => Effect.Effect<readonly RepositoryTaskIndexEntry[], RepositoryAgentApplicationError, R>;
   readonly startWorkflow: (
     input: AddAgentRunInput,
+  ) => Effect.Effect<{ readonly id: string }, RepositoryAgentBackendFailed, R>;
+  readonly retryPublication: (
+    input: RetryPullRequestPublicationInput,
+  ) => Effect.Effect<RepositoryTaskSnapshot, RepositoryAgentApplicationError, R>;
+  readonly startPublicationWorkflow: (
+    input: StartPullRequestPublicationInput,
   ) => Effect.Effect<{ readonly id: string }, RepositoryAgentBackendFailed, R>;
   readonly terminateWorkflow: (
     workflowId: string,
@@ -124,6 +142,10 @@ export interface RepositoryAgentService<R = never> {
     identity: ProductIdentity,
   ) => Effect.Effect<RunArtifact, RepositoryAgentApplicationError, R>;
   readonly cancelRepositoryRun: (
+    handle: unknown,
+    identity: ProductIdentity,
+  ) => Effect.Effect<RepositoryTaskSnapshot, RepositoryAgentApplicationError, R>;
+  readonly retryPullRequestPublication: (
     handle: unknown,
     identity: ProductIdentity,
   ) => Effect.Effect<RepositoryTaskSnapshot, RepositoryAgentApplicationError, R>;
@@ -217,10 +239,17 @@ export const makeRepositoryAgent = <R>(
     input: AddAgentRunInput,
   ) {
     const instance = yield* ports.startWorkflow(input).pipe(
-      Effect.tapError((error) => failUnstartedWorkflow(input, error.message).pipe(
-        Effect.catch(() => Effect.void),
-        Effect.catchDefect(() => Effect.void),
-      )),
+      Effect.tapError((error) => Effect.all([
+        failUnstartedWorkflow(input, error.message).pipe(
+          Effect.catch(() => Effect.void),
+          Effect.catchDefect(() => Effect.void),
+        ),
+        ports.releaseRunAdmission({
+          ownerId: input.ownerId,
+          runId: input.runId,
+          now: now(),
+        }),
+      ], { discard: true })),
     );
     yield* ports.attachWorkflow({
       taskId: input.taskId,
@@ -270,7 +299,12 @@ export const makeRepositoryAgent = <R>(
     const runRequest = yield* normalizeRunRequest(decodedRequest);
     const taskId = `task-${randomUUID()}`;
     const input = makeRunInput(taskId, identity.userId, runRequest);
-    yield* ports.createTask(input);
+    yield* ports.acquireRunAdmission({ ownerId: input.ownerId, runId: input.runId, now: input.now });
+    yield* ports.createTask(input).pipe(Effect.tapError(() => ports.releaseRunAdmission({
+      ownerId: input.ownerId,
+      runId: input.runId,
+      now: now(),
+    })));
     yield* ports.upsertIndex({
       taskId,
       ownerId: identity.userId,
@@ -278,7 +312,11 @@ export const makeRepositoryAgent = <R>(
       objective: runRequest.task,
       createdAt: input.now,
       updatedAt: input.now,
-    });
+    }).pipe(Effect.tapError(() => ports.releaseRunAdmission({
+      ownerId: input.ownerId,
+      runId: input.runId,
+      now: now(),
+    })));
     return yield* startRunWorkflow(input);
   });
 
@@ -295,7 +333,12 @@ export const makeRepositoryAgent = <R>(
       return yield* Effect.fail(new RepositoryTaskNotFound({ message: "Repository Task was not found" }));
     }
     const input = makeRunInput(request.taskId, identity.userId, runRequest);
-    yield* ports.addAgentRun(input);
+    yield* ports.acquireRunAdmission({ ownerId: input.ownerId, runId: input.runId, now: input.now });
+    yield* ports.addAgentRun(input).pipe(Effect.tapError(() => ports.releaseRunAdmission({
+      ownerId: input.ownerId,
+      runId: input.runId,
+      now: now(),
+    })));
     yield* ports.upsertIndex({
       taskId: request.taskId,
       ownerId: identity.userId,
@@ -303,7 +346,11 @@ export const makeRepositoryAgent = <R>(
       objective: runRequest.task,
       createdAt: snapshot.createdAt,
       updatedAt: input.now,
-    });
+    }).pipe(Effect.tapError(() => ports.releaseRunAdmission({
+      ownerId: input.ownerId,
+      runId: input.runId,
+      now: now(),
+    })));
     return yield* startRunWorkflow(input);
   });
 
@@ -351,6 +398,42 @@ export const makeRepositoryAgent = <R>(
     return artifact;
   });
 
+  const retryPullRequestPublication = Effect.fn("RepositoryAgent.retryPullRequestPublication")(
+    function* (unknownHandle: unknown, identity: ProductIdentity) {
+      const handle = yield* decodeRepositoryRunHandle(unknownHandle);
+      const snapshot = yield* getRepositoryTask(handle, identity);
+      const run = findRun(snapshot, handle.runId)!;
+      const publication = run.publication;
+      if (publication === null || publication.status !== "failed") {
+        return yield* Effect.fail(new RepositoryTaskConflict({
+          message: "Only a failed Pull Request Publication can be retried",
+        }));
+      }
+      const next = yield* ports.retryPublication({
+        ...handle,
+        publicationId: publication.publicationId,
+        now: now(),
+      });
+      const retried = findRun(next, handle.runId)?.publication;
+      if (retried === null || retried === undefined || retried.status !== "pending") {
+        return yield* Effect.fail(new RepositoryTaskConflict({
+          message: "Pull Request Publication retry was not recorded",
+        }));
+      }
+      yield* ports.startPublicationWorkflow({
+        taskId: handle.taskId,
+        runId: handle.runId,
+        publicationId: retried.publicationId,
+        attempt: retried.attempt,
+        patchArtifactKey: retried.patchArtifactKey,
+        baseSha: retried.baseSha,
+        branch: retried.branch,
+        now: retried.updatedAt,
+      });
+      return next;
+    },
+  );
+
   const cancelRepositoryRun = Effect.fn("RepositoryAgent.cancelRepositoryRun")(function* (
     unknownHandle: unknown,
     identity: ProductIdentity,
@@ -392,12 +475,19 @@ export const makeRepositoryAgent = <R>(
       terminal: { status: "cancelled", cancellation },
     };
     yield* ports.writeArtifact(artifactKey, artifact);
-    return yield* ports.cancelRun({
+    const cancelled = yield* ports.cancelRun({
       ...handle,
       artifactKey,
       cancellation,
       now: now(),
     });
+    const principal = yield* requireIdentity(identity);
+    yield* ports.releaseRunAdmission({
+      ownerId: principal.userId,
+      runId: handle.runId,
+      now: now(),
+    });
+    return cancelled;
   });
 
   return {
@@ -407,6 +497,7 @@ export const makeRepositoryAgent = <R>(
     getRepositoryTask,
     getRunArtifact,
     listRepositoryTasks,
+    retryPullRequestPublication,
     startAdditionalRepositoryRun,
   };
 };

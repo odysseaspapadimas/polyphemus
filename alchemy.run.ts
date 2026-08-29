@@ -6,7 +6,7 @@ import {
   RepositoryAgentBackendLive,
 } from "./src/RepositoryAgentBackend.ts";
 import { ModelProxyWorker } from "./src/ModelProxyWorker.ts";
-import { PreviewAccess, PREVIEW_ACCESS_ISSUER } from "./src/PreviewAccess.ts";
+import { PreviewAccess } from "./src/PreviewAccess.ts";
 import { RepositoryTaskIndexDatabase } from "./src/RepositoryTaskIndexDatabase.ts";
 import { RunArtifactsBucket } from "./src/RunArtifactsBucket.ts";
 import { SandboxRuntimeWorker } from "./src/SandboxRuntimeWorker.ts";
@@ -31,7 +31,7 @@ export const Website = Effect.gen(function* () {
     },
     env: {
       ACCESS_AUDIENCE: access.aud,
-      ACCESS_ISSUER: PREVIEW_ACCESS_ISSUER,
+      ACCESS_ISSUER: access.issuer,
       REPOSITORY_AGENT_BACKEND: repositoryAgentBackend,
     },
   });

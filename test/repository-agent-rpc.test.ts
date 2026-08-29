@@ -5,6 +5,7 @@ import * as Schema from "effect/Schema";
 import {
   CreateRepositoryTaskCommandSchema,
   CreateRepositoryTaskResultSchema,
+  RetryPullRequestPublicationCommandSchema,
   type CreateRepositoryTaskCommand,
 } from "../src/domain/repository-agent-rpc.ts";
 
@@ -32,6 +33,13 @@ describe("Repository Agent RPC contracts", () => {
       }),
     );
     expect(Exit.isFailure(exit)).toBe(true);
+    expect(Schema.decodeUnknownSync(RetryPullRequestPublicationCommandSchema)({
+      principal: validCommand.principal,
+      handle: { taskId: "task-1", runId: "run-1" },
+    })).toEqual({
+      principal: validCommand.principal,
+      handle: { taskId: "task-1", runId: "run-1" },
+    });
   });
 
   test("accepts plain domain-failure envelopes and rejects custom error instances", async () => {

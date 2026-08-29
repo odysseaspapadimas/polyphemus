@@ -2,12 +2,14 @@ import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 
 const RequiredText = Schema.Trim.check(Schema.isMinLength(1));
+const ShortText = RequiredText.check(Schema.isMaxLength(4_096));
+const RunObjective = RequiredText.check(Schema.isMaxLength(16_384));
 const GitSha = Schema.String.check(Schema.isPattern(/^[0-9a-f]{40}$/));
 
 export const SandboxRunStartRequestSchema = Schema.Struct({
   sandboxId: RequiredText,
-  repositoryUrl: RequiredText,
-  task: RequiredText,
+  repositoryUrl: RequiredText.check(Schema.isMaxLength(2_048)),
+  task: RunObjective,
   expectedBaseSha: Schema.optional(GitSha),
 });
 export type SandboxRunStartRequest = typeof SandboxRunStartRequestSchema.Type;
@@ -32,8 +34,8 @@ export type PiActivityStage = typeof PiActivityStageSchema.Type;
 export const PiActivityEventSchema = Schema.Struct({
   type: Schema.Literal("pi.activity"),
   stage: PiActivityStageSchema,
-  label: RequiredText,
-  tool: Schema.optional(RequiredText),
+  label: ShortText,
+  tool: Schema.optional(ShortText),
   isError: Schema.optional(Schema.Boolean),
   timestamp: RequiredText,
 });
@@ -42,12 +44,12 @@ export type PiActivityEvent = typeof PiActivityEventSchema.Type;
 export const PiRunResultSchema = Schema.Struct({
   version: Schema.Literal(1),
   status: Schema.Literals(["completed", "blocked", "budget_exhausted"] as const),
-  summary: RequiredText,
-  findings: Schema.Array(RequiredText),
-  assumptions: Schema.Array(RequiredText),
-  changedFiles: Schema.Array(RequiredText),
-  unresolvedRisks: Schema.Array(RequiredText),
-  runRequest: RequiredText,
+  summary: ShortText,
+  findings: Schema.Array(ShortText).check(Schema.isMaxLength(100)),
+  assumptions: Schema.Array(ShortText).check(Schema.isMaxLength(100)),
+  changedFiles: Schema.Array(ShortText).check(Schema.isMaxLength(200)),
+  unresolvedRisks: Schema.Array(ShortText).check(Schema.isMaxLength(100)),
+  runRequest: RunObjective,
   terminationReason: Schema.Literals([
     "finish_run",
     "wall_clock_budget",
@@ -64,10 +66,15 @@ export const PiRunResultSchema = Schema.Struct({
       cacheWriteTokens: Schema.Number,
       totalTokens: Schema.Number,
       costUsd: Schema.Number,
+      retries: Schema.Number.pipe(Schema.withDecodingDefaultKey(Effect.succeed(0))),
     }),
   }),
 });
 export type PiRunResult = typeof PiRunResultSchema.Type;
+
+/** True only when Pi explicitly submitted its structured finish_run report. */
+export const hasStructuredAgentReport = (result: PiRunResult): boolean =>
+  result.terminationReason === "finish_run";
 
 export const SandboxProcessStatusSchema = Schema.Literals([
   "starting",
@@ -118,11 +125,20 @@ export const SandboxRunResultSchema = Schema.Struct({
   runAssumptions: Schema.Array(RequiredText),
   baseSha: GitSha,
   pi: PiRunResultSchema,
-  events: Schema.Array(PiActivityEventSchema),
-  changedFiles: Schema.Array(RequiredText),
-  patch: Schema.String,
-  validation: Schema.Array(ValidationResultSchema),
+  events: Schema.Array(PiActivityEventSchema).check(Schema.isMaxLength(1_000)),
+  changedFiles: Schema.Array(ShortText).check(Schema.isMaxLength(200)),
+  patch: Schema.String.check(Schema.isMaxLength(2_000_000)),
+  validation: Schema.Array(ValidationResultSchema).check(Schema.isMaxLength(10)),
   validated: Schema.Boolean,
+  timing: Schema.Struct({
+    agentMs: Schema.Number,
+    validationMs: Schema.Number,
+    finalizationMs: Schema.Number,
+  }).pipe(Schema.withDecodingDefaultKey(Effect.succeed({
+    agentMs: 0,
+    validationMs: 0,
+    finalizationMs: 0,
+  }))),
   cleanup: Schema.Literals(["destroyed", "failed"] as const),
 });
 export type SandboxRunResult = typeof SandboxRunResultSchema.Type;

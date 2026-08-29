@@ -1288,6 +1288,7 @@ const finalizeRun = (request: Request, env: SandboxRuntimeEnv) => Effect.gen(fun
   }
   const sandbox = getRunSandbox(env, input.sandboxId);
   yield* configureRunSandbox(sandbox);
+  const finalizationStartedAt = Date.now();
 
   return yield* collectFinalResult(
     sandbox,
@@ -1300,12 +1301,22 @@ const finalizeRun = (request: Request, env: SandboxRuntimeEnv) => Effect.gen(fun
         Effect.ignore,
         Effect.flatMap(() => Effect.fail(error)),
       ),
-      onSuccess: (result) => sandboxEffect("destroy-sandbox", () => sandbox.destroy()).pipe(
-        Effect.match({
-          onFailure: () => json({ ...result, cleanup: "failed" } satisfies SandboxRunResult),
-          onSuccess: () => json({ ...result, cleanup: "destroyed" } satisfies SandboxRunResult),
-        }),
-      ),
+      onSuccess: (result) => {
+        const withTiming = {
+          ...result,
+          timing: {
+            agentMs: result.pi.budgetUsage.wallClock.elapsedMs,
+            validationMs: result.validation.reduce((total, check) => total + check.durationMs, 0),
+            finalizationMs: Date.now() - finalizationStartedAt,
+          },
+        };
+        return sandboxEffect("destroy-sandbox", () => sandbox.destroy()).pipe(
+          Effect.match({
+            onFailure: () => json({ ...withTiming, cleanup: "failed" } satisfies SandboxRunResult),
+            onSuccess: () => json({ ...withTiming, cleanup: "destroyed" } satisfies SandboxRunResult),
+          }),
+        );
+      },
     }),
   );
 });

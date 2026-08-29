@@ -14,6 +14,8 @@ import {
   CompletePullRequestPublicationInputSchema,
   FailPullRequestPublicationInputSchema,
   MarkPullRequestPublicationInputSchema,
+  pullRequestPublicationArtifactKey,
+  RetryPullRequestPublicationInputSchema,
   StartPullRequestPublicationInputSchema,
 } from "./domain/pull-request-publication.ts";
 import {
@@ -23,6 +25,7 @@ import {
   attachWorkflow as attachWorkflowSnapshot,
   CancelRunInputSchema,
   cancelRun,
+  canRetryPullRequestPublication,
   canStartPullRequestPublication,
   CompleteRunInputSchema,
   completePullRequestPublication,
@@ -47,6 +50,7 @@ import {
   RepositoryTaskConflict,
   RepositoryTaskNotFound,
   requestRunCancellation,
+  retryPullRequestPublication,
   startPullRequestPublication,
   type RepositoryTaskSnapshot,
 } from "./domain/repository-task.ts";
@@ -157,6 +161,11 @@ export default class RepositoryTaskCoordinator extends Cloudflare.DurableObject<
             message: "Agent Run already exists",
           }));
         }
+        if (snapshot.agentRuns.length >= 25) {
+          return yield* Effect.fail(new RepositoryTaskConflict({
+            message: "Repository Task reached its Agent Run history limit",
+          }));
+        }
         return yield* persist(addAgentRunSnapshot(snapshot, valid));
       });
 
@@ -248,6 +257,7 @@ export default class RepositoryTaskCoordinator extends Cloudflare.DurableObject<
             taskId: next.taskId,
             runId: valid.runId,
             publicationId: `publication-${valid.runId}`,
+            attempt: 1,
             patchArtifactKey: valid.artifactKey,
             baseSha: completedRun.baseSha,
             branch: `polyphemus/${next.taskId}`,
@@ -321,6 +331,34 @@ export default class RepositoryTaskCoordinator extends Cloudflare.DurableObject<
         return yield* persist(startPullRequestPublication(snapshot, valid));
       });
 
+      const retryPublication = Effect.fn("RepositoryTaskCoordinator.retryPublication")(function* (input: unknown) {
+        const valid = yield* decodeInput(
+          RetryPullRequestPublicationInputSchema,
+          "Invalid Pull Request Publication retry",
+          input,
+        );
+        const snapshot = yield* requireSnapshot();
+        if (snapshot.taskId !== valid.taskId) {
+          return yield* Effect.fail(new RepositoryTaskNotFound({ message: "Repository Task was not found" }));
+        }
+        if (snapshot.activeRunId !== null) {
+          return yield* Effect.fail(new RepositoryTaskConflict({
+            message: "Repository Task already has an active Agent Run",
+          }));
+        }
+        if (hasActivePullRequestPublication(snapshot)) {
+          return yield* Effect.fail(new RepositoryTaskConflict({
+            message: "Repository Task already has an active Pull Request Publication",
+          }));
+        }
+        if (!canRetryPullRequestPublication(snapshot, valid)) {
+          return yield* Effect.fail(new RepositoryTaskConflict({
+            message: "Only a failed publication for the persisted Validated Patch can be retried",
+          }));
+        }
+        return yield* persist(retryPullRequestPublication(snapshot, valid));
+      });
+
       const markPublication = Effect.fn("RepositoryTaskCoordinator.markPublication")(function* (input: unknown) {
         const valid = yield* decodeInput(
           MarkPullRequestPublicationInputSchema,
@@ -335,6 +373,11 @@ export default class RepositoryTaskCoordinator extends Cloudflare.DurableObject<
         if (publication === null || publication.publicationId !== valid.publicationId) {
           return yield* Effect.fail(new RepositoryTaskConflict({
             message: "Pull Request Publication does not match the selected Validated Patch",
+          }));
+        }
+        if (publication.attempt !== valid.attempt) {
+          return yield* Effect.fail(new RepositoryTaskConflict({
+            message: "Pull Request Publication attempt is no longer current",
           }));
         }
         if (publication.status === "complete" || publication.status === "failed") {
@@ -361,9 +404,13 @@ export default class RepositoryTaskCoordinator extends Cloudflare.DurableObject<
             message: "Pull Request Publication does not match the selected Validated Patch",
           }));
         }
-        const expectedArtifactKey =
-          `repository-tasks/${valid.taskId}/agent-runs/${valid.runId}/pull-request-publication.json`;
-        if (valid.publicationArtifactKey !== expectedArtifactKey ||
+        const expectedArtifactKey = pullRequestPublicationArtifactKey(
+          valid.taskId,
+          valid.runId,
+          valid.attempt,
+        );
+        if (publication.attempt !== valid.attempt ||
+            valid.publicationArtifactKey !== expectedArtifactKey ||
             valid.evidence.branch !== publication.branch) {
           return yield* Effect.fail(new RepositoryTaskConflict({
             message: "Pull Request Publication evidence does not match its durable intent",
@@ -386,6 +433,7 @@ export default class RepositoryTaskCoordinator extends Cloudflare.DurableObject<
           snapshot,
           valid.runId,
           valid.publicationId,
+          valid.attempt,
           valid.publicationArtifactKey,
           valid.evidence,
           valid.now,
@@ -408,10 +456,14 @@ export default class RepositoryTaskCoordinator extends Cloudflare.DurableObject<
             message: "Pull Request Publication does not match the selected Validated Patch",
           }));
         }
-        const expectedArtifactKey =
-          `repository-tasks/${valid.taskId}/agent-runs/${valid.runId}/pull-request-publication.json`;
-        if (valid.publicationArtifactKey !== null &&
-            valid.publicationArtifactKey !== expectedArtifactKey) {
+        const expectedArtifactKey = pullRequestPublicationArtifactKey(
+          valid.taskId,
+          valid.runId,
+          valid.attempt,
+        );
+        if (publication.attempt !== valid.attempt ||
+            (valid.publicationArtifactKey !== null &&
+              valid.publicationArtifactKey !== expectedArtifactKey)) {
           return yield* Effect.fail(new RepositoryTaskConflict({
             message: "Pull Request Publication failure pointer is invalid",
           }));
@@ -433,6 +485,7 @@ export default class RepositoryTaskCoordinator extends Cloudflare.DurableObject<
           snapshot,
           valid.runId,
           valid.publicationId,
+          valid.attempt,
           valid.publicationArtifactKey,
           valid.failure,
           valid.now,
@@ -520,6 +573,7 @@ export default class RepositoryTaskCoordinator extends Cloudflare.DurableObject<
         recordProgress,
         recordStarted,
         requestCancellation,
+        retryPublication,
         runIsActive,
         startPublication,
         webSocketClose,

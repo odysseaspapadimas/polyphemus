@@ -23,6 +23,9 @@ import {
   type ListRepositoryTasksCommand,
   type ListRepositoryTasksResult,
   type RepositoryAgentFailure,
+  RetryPullRequestPublicationCommandSchema,
+  type RetryPullRequestPublicationCommand,
+  type RetryPullRequestPublicationResult,
   StartAdditionalRepositoryRunCommandSchema,
   type StartAdditionalRepositoryRunCommand,
   type StartAdditionalRepositoryRunResult,
@@ -30,6 +33,8 @@ import {
 } from "./domain/repository-agent-rpc.ts";
 import { RepositoryTaskIdSchema } from "./domain/repository-task-live.ts";
 import {
+  pullRequestPublicationArtifactKey,
+  pullRequestPublicationWorkflowId,
   PullRequestPublicationArtifactSchema,
   PullRequestPublicationWorkflowResultSchema,
   type PullRequestPublicationFailure,
@@ -60,6 +65,9 @@ import RepositoryRunWorkflow from "./RepositoryRunWorkflow.ts";
 import RepositoryTaskCoordinator from "./RepositoryTaskCoordinator.ts";
 import { RepositoryTaskIndexDatabase } from "./RepositoryTaskIndexDatabase.ts";
 import { RunArtifactsBucket } from "./RunArtifactsBucket.ts";
+import RunAdmissionCoordinator, {
+  RunAdmissionRejected,
+} from "./RunAdmissionCoordinator.ts";
 import { SandboxRuntimeWorker } from "./SandboxRuntimeWorker.ts";
 
 const AuthorizedTaskRowSchema = Schema.Struct({ taskId: RepositoryTaskIdSchema });
@@ -83,6 +91,9 @@ export type RepositoryAgentBackendShape = Cloudflare.WorkerShape & {
   readonly cancelRepositoryRun: (
     command: CancelRepositoryRunCommand,
   ) => Effect.Effect<CancelRepositoryRunResult, never, RuntimeContext>;
+  readonly retryPullRequestPublication: (
+    command: RetryPullRequestPublicationCommand,
+  ) => Effect.Effect<RetryPullRequestPublicationResult, never, RuntimeContext>;
 };
 
 /** Lightweight Worker identifier imported by the Website for typed RPC. */
@@ -90,6 +101,7 @@ export class RepositoryAgentBackend extends Cloudflare.Worker<
   RepositoryAgentBackend,
   RepositoryAgentBackendShape,
   | RepositoryTaskCoordinator
+  | RunAdmissionCoordinator
   | RepositoryRunWorkflow
   | PullRequestPublicationWorkflow
 >()("RepositoryAgentBackend") {}
@@ -102,6 +114,9 @@ const failureFrom = (error: RepositoryAgentApplicationError): RepositoryAgentFai
   message: error.message,
   ...(error instanceof RepositoryAgentBackendFailed || error instanceof RepositoryTaskIndexFailed
     ? { operation: error.operation }
+    : {}),
+  ...(error instanceof RunAdmissionRejected
+    ? { retryAfterSeconds: error.retryAfterSeconds }
     : {}),
 });
 
@@ -124,6 +139,7 @@ export const RepositoryAgentBackendLive = RepositoryAgentBackend.make(
     // These logical IDs are unchanged so the existing coordinator namespace,
     // Workflow, D1 projection, and R2 artifacts remain authoritative.
     const coordinators = yield* RepositoryTaskCoordinator;
+    const admissions = yield* RunAdmissionCoordinator;
     const publicationWorkflow = yield* PullRequestPublicationWorkflow;
     const workflow = yield* RepositoryRunWorkflow;
     const bucket = yield* Cloudflare.R2.ReadWriteBucket(RunArtifactsBucket);
@@ -222,12 +238,14 @@ export const RepositoryAgentBackendLive = RepositoryAgentBackend.make(
       snapshot: RepositoryTaskSnapshot,
       runId: string,
       publicationId: string,
+      attempt: number,
       publicationArtifactKey: string | null,
       failure: PullRequestPublicationFailure,
     ) => coordinators.getByName(snapshot.taskId).failPublication({
       taskId: snapshot.taskId,
       runId,
       publicationId,
+      attempt,
       publicationArtifactKey,
       failure,
       now: new Date().toISOString(),
@@ -244,8 +262,11 @@ export const RepositoryAgentBackendLive = RepositoryAgentBackend.make(
           const publication = run.publication;
           if (publication === null || publication.status === "complete" ||
               publication.status === "failed") continue;
-          const key =
-            `repository-tasks/${taskId}/agent-runs/${run.runId}/pull-request-publication.json`;
+          const key = pullRequestPublicationArtifactKey(
+            taskId,
+            run.runId,
+            publication.attempt,
+          );
 
           current = yield* Effect.gen(function* () {
             const object = yield* bucket.get(key);
@@ -259,12 +280,14 @@ export const RepositoryAgentBackendLive = RepositoryAgentBackend.make(
               if (artifact === null || artifact.taskId !== taskId ||
                   artifact.runId !== run.runId ||
                   artifact.publicationId !== publication.publicationId ||
+                  artifact.attempt !== publication.attempt ||
                   artifact.patchArtifactKey !== publication.patchArtifactKey ||
                   artifact.baseSha !== publication.baseSha) {
                 return yield* reconcileFailure(
                   current,
                   run.runId,
                   publication.publicationId,
+                  publication.attempt,
                   null,
                   {
                     code: "PublicationFailed",
@@ -279,6 +302,7 @@ export const RepositoryAgentBackendLive = RepositoryAgentBackend.make(
                     taskId,
                     runId: run.runId,
                     publicationId: publication.publicationId,
+                    attempt: publication.attempt,
                     publicationArtifactKey: key,
                     evidence: artifact.terminal.evidence,
                     now: new Date().toISOString(),
@@ -287,13 +311,18 @@ export const RepositoryAgentBackendLive = RepositoryAgentBackend.make(
                     current,
                     run.runId,
                     publication.publicationId,
+                    publication.attempt,
                     key,
                     artifact.terminal.failure,
                   );
             }
 
+            const workflowId = pullRequestPublicationWorkflowId(
+              publication.publicationId,
+              publication.attempt,
+            );
             const workflowState = yield* publicationWorkflow
-              .get(publication.publicationId)
+              .get(workflowId)
               .pipe(
                 Effect.flatMap((instance) => instance.status().pipe(
                   Effect.map((status) => ({ instance, status })),
@@ -304,15 +333,16 @@ export const RepositoryAgentBackendLive = RepositoryAgentBackend.make(
               // Recover a launch response loss or a publication Workflow that
               // was never created after the durable coordinator intent.
               yield* publicationWorkflow.create({
-                id: publication.publicationId,
+                id: workflowId,
                 params: {
                   taskId,
                   runId: run.runId,
                   publicationId: publication.publicationId,
+                  attempt: publication.attempt,
                   patchArtifactKey: publication.patchArtifactKey,
                   baseSha: publication.baseSha,
                   branch: publication.branch,
-                  now: publication.createdAt,
+                  now: publication.updatedAt,
                 },
                 retention: { successRetention: "30 days", errorRetention: "30 days" },
               }).pipe(
@@ -329,12 +359,14 @@ export const RepositoryAgentBackendLive = RepositoryAgentBackend.make(
               if (output === null || output.taskId !== taskId ||
                   output.runId !== run.runId ||
                   output.publicationId !== publication.publicationId ||
+                  output.attempt !== publication.attempt ||
                   (output.publicationArtifactKey !== null &&
                     output.publicationArtifactKey !== key)) {
                 return yield* reconcileFailure(
                   current,
                   run.runId,
                   publication.publicationId,
+                  publication.attempt,
                   null,
                   {
                     code: "PublicationFailed",
@@ -351,9 +383,10 @@ export const RepositoryAgentBackendLive = RepositoryAgentBackend.make(
                     taskId,
                     runId: run.runId,
                     publicationId: publication.publicationId,
+                    attempt: publication.attempt,
                     patchArtifactKey: publication.patchArtifactKey,
                     baseSha: publication.baseSha,
-                    createdAt: publication.createdAt,
+                    createdAt: publication.updatedAt,
                     terminal: { status: "failed", failure: output.failure },
                   }), {
                     httpMetadata: { contentType: "application/json; charset=utf-8" },
@@ -365,6 +398,7 @@ export const RepositoryAgentBackendLive = RepositoryAgentBackend.make(
                   current,
                   run.runId,
                   publication.publicationId,
+                  publication.attempt,
                   output.publicationArtifactKey,
                   output.failure,
                 );
@@ -374,9 +408,10 @@ export const RepositoryAgentBackendLive = RepositoryAgentBackend.make(
                 taskId,
                 runId: run.runId,
                 publicationId: publication.publicationId,
+                attempt: publication.attempt,
                 patchArtifactKey: publication.patchArtifactKey,
                 baseSha: publication.baseSha,
-                createdAt: publication.createdAt,
+                createdAt: publication.updatedAt,
                 terminal: { status: "complete" as const, evidence: output.evidence },
               };
               const recovered = yield* bucket.put(key, JSON.stringify(recoveredArtifact), {
@@ -388,6 +423,7 @@ export const RepositoryAgentBackendLive = RepositoryAgentBackend.make(
                 taskId,
                 runId: run.runId,
                 publicationId: publication.publicationId,
+                attempt: publication.attempt,
                 publicationArtifactKey: key,
                 evidence: output.evidence,
                 now: new Date().toISOString(),
@@ -418,6 +454,21 @@ export const RepositoryAgentBackendLive = RepositoryAgentBackend.make(
     );
 
     const ports: RepositoryAgentPorts<RuntimeContext> = {
+      acquireRunAdmission: (input) => admissions.getByName(input.ownerId).acquire(input).pipe(
+        Effect.mapError((error) => error instanceof RunAdmissionRejected
+          ? error
+          : new RepositoryAgentBackendFailed({
+              operation: "acquire-run-admission",
+              message: "Could not authorize the Agent Run",
+              cause: error,
+            })),
+        Effect.asVoid,
+      ),
+      releaseRunAdmission: (input) => admissions.getByName(input.ownerId).release(input).pipe(
+        Effect.asVoid,
+        Effect.catch(() => Effect.void),
+        Effect.catchDefect(() => Effect.void),
+      ),
       createTask: (input) => coordinators.getByName(input.taskId).createTask(input),
       addAgentRun: (input) => reconcileTask(input.taskId).pipe(
         Effect.flatMap(() => coordinators.getByName(input.taskId).addAgentRun(input)),
@@ -487,6 +538,27 @@ export const RepositoryAgentBackendLive = RepositoryAgentBackend.make(
         )),
         Effect.flatMap(decodeRepositoryTaskIndexEntries),
       ),
+      retryPublication: (input) => reconcileTask(input.taskId).pipe(
+        Effect.flatMap(() => coordinators.getByName(input.taskId).retryPublication(input)),
+      ),
+      startPublicationWorkflow: (input) => {
+        const workflowId = pullRequestPublicationWorkflowId(input.publicationId, input.attempt);
+        return publicationWorkflow.create({
+          id: workflowId,
+          params: input,
+          retention: { successRetention: "30 days", errorRetention: "30 days" },
+        }).pipe(
+          Effect.catchDefect((createCause) => publicationWorkflow.get(workflowId).pipe(
+            Effect.flatMap((existing) => existing.status().pipe(Effect.as(existing))),
+            Effect.catchDefect(() => Effect.fail(new RepositoryAgentBackendFailed({
+              operation: "start-publication-workflow",
+              message: "Could not start or recover Pull Request Publication",
+              cause: createCause,
+            }))),
+          )),
+          Effect.map((instance) => ({ id: instance.id })),
+        );
+      },
       startWorkflow: (input: AddAgentRunInput) => workflow.create({
         id: input.runId,
         params: input,
@@ -606,6 +678,17 @@ export const RepositoryAgentBackendLive = RepositoryAgentBackend.make(
       ),
     );
 
+    const retryPullRequestPublication = (unknownCommand: unknown) => envelope(
+      decodeRepositoryAgentRpc(
+        RetryPullRequestPublicationCommandSchema,
+        "Invalid retry Pull Request Publication RPC command",
+      )(unknownCommand).pipe(
+        Effect.mapError(rpcInputError),
+        Effect.flatMap((command) =>
+          agent.retryPullRequestPublication(command.handle, command.principal)),
+      ),
+    );
+
     return RepositoryAgentBackend.of({
       cancelRepositoryRun,
       createRepositoryTask,
@@ -643,6 +726,7 @@ export const RepositoryAgentBackendLive = RepositoryAgentBackend.make(
       getRepositoryTask,
       getRunArtifact,
       listRepositoryTasks,
+      retryPullRequestPublication,
       startAdditionalRepositoryRun,
     });
   }).pipe(

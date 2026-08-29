@@ -474,6 +474,17 @@ describe("RepositoryPublisher", () => {
     expect(failure?.retryable).toBe(false);
   });
 
+  test("blocks likely credentials before making GitHub content public", async () => {
+    const fixture = makePort();
+    const failure = await Effect.runPromise(makeRepositoryPublisher(fixture.port).publish({
+      ...request,
+      objective: "Use token='github-secret-that-is-long-enough'",
+    }).pipe(Effect.match({ onFailure: (error) => error, onSuccess: () => null })));
+
+    expect(failure?.operation).toBe("scan-publication-content");
+    expect(failure?.code).toBe("UnsupportedPatch");
+  });
+
   test("keeps the GitHub credential out of structured failures", async () => {
     const secret = "github-secret-that-must-not-escape";
     const port = makeGitHubPublicationPort(

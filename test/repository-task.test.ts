@@ -2,10 +2,12 @@ import { describe, expect, test } from "bun:test";
 import {
   addAgentRun,
   cancelRun,
+  canRetryPullRequestPublication,
   canStartPullRequestPublication,
   completePullRequestPublication,
   completeRun,
   createRepositoryTaskSnapshot,
+  failPullRequestPublication,
   failRun,
   hasActivePullRequestPublication,
   isActiveRun,
@@ -13,6 +15,7 @@ import {
   markRunStage,
   recordRunProgress,
   requestRunCancellation,
+  retryPullRequestPublication,
   startPullRequestPublication,
 } from "../src/domain/repository-task.ts";
 
@@ -152,6 +155,7 @@ describe("Repository Task transitions", () => {
       taskId: "task-1",
       runId: "run-1",
       publicationId: "publication-run-1",
+      attempt: 1,
       patchArtifactKey: "repository-tasks/task-1/agent-runs/run-1/completed.json",
       baseSha: "a".repeat(40),
       branch: "polyphemus/task-1",
@@ -172,6 +176,7 @@ describe("Repository Task transitions", () => {
       taskId: "task-1",
       runId: "run-1",
       publicationId: "publication-run-1",
+      attempt: 1,
       status: "publishing",
       activity: "Publishing the Agent Branch",
       now: "2026-07-28T10:01:02.000Z",
@@ -180,6 +185,7 @@ describe("Repository Task transitions", () => {
       publishing,
       "run-1",
       "publication-run-1",
+      1,
       "repository-tasks/task-1/agent-runs/run-1/pull-request-publication.json",
       {
         upstreamOwner: "example",
@@ -201,5 +207,75 @@ describe("Repository Task transitions", () => {
     expect(published.agentRuns[0]?.publication?.status).toBe("complete");
     expect(published.agentRuns[0]?.publication?.evidence?.draft).toBe(true);
     expect(hasActivePullRequestPublication(published)).toBe(false);
+  });
+
+  test("retries only the failed publication for the same Validated Patch", () => {
+    const based = { ...created, agentRuns: [{ ...created.agentRuns[0]!, baseSha: "a".repeat(40) }] };
+    const completed = completeRun(
+      based,
+      "run-1",
+      "repository-tasks/task-1/agent-runs/run-1/completed.json",
+      true,
+      true,
+      "destroyed",
+      "2026-07-28T10:01:00.000Z",
+    );
+    const started = startPullRequestPublication(completed, {
+      taskId: "task-1",
+      runId: "run-1",
+      publicationId: "publication-run-1",
+      attempt: 1,
+      patchArtifactKey: "repository-tasks/task-1/agent-runs/run-1/completed.json",
+      baseSha: "a".repeat(40),
+      branch: "polyphemus/task-1",
+      now: "2026-07-28T10:01:01.000Z",
+    });
+    const failed = failPullRequestPublication(
+      started,
+      "run-1",
+      "publication-run-1",
+      1,
+      "repository-tasks/task-1/agent-runs/run-1/pull-request-publication.json",
+      {
+        code: "PublicationFailed",
+        message: "GitHub rejected the operation",
+        operation: "create-blob",
+        retryable: false,
+        statusCode: 403,
+      },
+      "2026-07-28T10:01:02.000Z",
+    );
+    const retryInput = {
+      taskId: "task-1",
+      runId: "run-1",
+      publicationId: "publication-run-1",
+      now: "2026-07-28T10:01:03.000Z",
+    } as const;
+
+    expect(canRetryPullRequestPublication(failed, retryInput)).toBe(true);
+    const retried = retryPullRequestPublication(failed, retryInput);
+    expect(retried.agentRuns[0]?.publication).toMatchObject({
+      attempt: 2,
+      status: "pending",
+      publicationArtifactKey: null,
+      failure: null,
+      completedAt: null,
+    });
+    const staleFailure = failPullRequestPublication(
+      retried,
+      "run-1",
+      "publication-run-1",
+      1,
+      null,
+      {
+        code: "PublicationFailed",
+        message: "Late attempt failure",
+        operation: "create-blob",
+        retryable: false,
+      },
+      "2026-07-28T10:01:04.000Z",
+    );
+    expect(staleFailure).toEqual(retried);
+    expect(canRetryPullRequestPublication(retried, retryInput)).toBe(false);
   });
 });

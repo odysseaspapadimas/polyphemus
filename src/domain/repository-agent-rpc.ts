@@ -18,6 +18,7 @@ export const RepositoryAgentFailureTagSchema = Schema.Literals([
   "RepositoryTaskNotFound",
   "RepositoryTaskIndexFailed",
   "RepositoryAgentBackendFailed",
+  "RunAdmissionRejected",
 ] as const);
 export type RepositoryAgentFailureTag = typeof RepositoryAgentFailureTagSchema.Type;
 
@@ -26,6 +27,7 @@ export const RepositoryAgentFailureSchema = Schema.Struct({
   _tag: RepositoryAgentFailureTagSchema,
   message: RequiredText,
   operation: Schema.optional(RequiredText),
+  retryAfterSeconds: Schema.optional(Schema.Number),
 });
 export type RepositoryAgentFailure = typeof RepositoryAgentFailureSchema.Type;
 
@@ -57,6 +59,9 @@ export type GetRunArtifactCommand = GetRepositoryTaskCommand;
 
 export const CancelRepositoryRunCommandSchema = GetRepositoryTaskCommandSchema;
 export type CancelRepositoryRunCommand = GetRepositoryTaskCommand;
+
+export const RetryPullRequestPublicationCommandSchema = GetRepositoryTaskCommandSchema;
+export type RetryPullRequestPublicationCommand = GetRepositoryTaskCommand;
 
 const failureEnvelope = Schema.Struct({
   ok: Schema.Literal(false),
@@ -92,6 +97,9 @@ export type GetRunArtifactResult = typeof GetRunArtifactResultSchema.Type;
 
 export const CancelRepositoryRunResultSchema = GetRepositoryTaskResultSchema;
 export type CancelRepositoryRunResult = GetRepositoryTaskResult;
+
+export const RetryPullRequestPublicationResultSchema = GetRepositoryTaskResultSchema;
+export type RetryPullRequestPublicationResult = GetRepositoryTaskResult;
 
 export class InvalidRepositoryAgentRpcData extends Schema.TaggedErrorClass<InvalidRepositoryAgentRpcData>()(
   "InvalidRepositoryAgentRpcData",

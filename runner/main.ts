@@ -275,6 +275,7 @@ interface PiResult extends AgentFindingResult {
       readonly cacheWriteTokens: number;
       readonly totalTokens: number;
       readonly costUsd: number;
+      readonly retries: number;
     };
   };
 }
@@ -440,6 +441,7 @@ const modelUsage = {
   cacheWriteTokens: 0,
   totalTokens: 0,
   costUsd: 0,
+  retries: 0,
 };
 
 const finishRun = defineTool({
@@ -606,6 +608,21 @@ const main = async (): Promise<void> => {
       modelUsage.cacheWriteTokens += event.message.usage.cacheWrite;
       modelUsage.totalTokens += event.message.usage.totalTokens;
       modelUsage.costUsd += event.message.usage.cost.total;
+    } else if (event.type === "auto_retry_start") {
+      modelUsage.retries += 1;
+      emit({
+        type: "pi.activity",
+        stage: "investigating",
+        label: `Model request retry ${event.attempt} of ${event.maxAttempts}`,
+        isError: true,
+      });
+    } else if (event.type === "auto_retry_end") {
+      emit({
+        type: "pi.activity",
+        stage: "investigating",
+        label: event.success ? "Model request retry recovered" : "Model request retries exhausted",
+        isError: !event.success,
+      });
     } else if (event.type === "tool_execution_start") {
       const stage = event.toolName === "repo_edit" || event.toolName === "repo_write"
         ? "modifying"

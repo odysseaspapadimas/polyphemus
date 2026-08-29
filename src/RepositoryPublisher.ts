@@ -21,6 +21,16 @@ import {
 const RequiredText = Schema.Trim.check(Schema.isMinLength(1));
 const Sha = Schema.String.check(Schema.isPattern(/^[0-9a-f]{40}$/));
 const MAX_BLOB_BYTES = 1_000_000;
+const PUBLICATION_SECRET_PATTERNS = [
+  /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/,
+  /\bgh[pousr]_[A-Za-z0-9]{30,}\b/,
+  /\bsk-[A-Za-z0-9_-]{20,}\b/,
+  /\bAKIA[0-9A-Z]{16}\b/,
+  /\b(?:api[_-]?key|token|secret|password)\s*[:=]\s*["'][^"'\r\n]{16,}["']/i,
+] as const;
+
+const containsLikelySecret = (value: string): boolean =>
+  PUBLICATION_SECRET_PATTERNS.some((pattern) => pattern.test(value));
 
 export class RepositoryPublicationFailed extends Schema.TaggedErrorClass<RepositoryPublicationFailed>()(
   "RepositoryPublicationFailed",
@@ -453,6 +463,13 @@ export const makeRepositoryPublisher = (
         "Repository Publication identifiers or timestamps are invalid",
       ));
     }
+    if (containsLikelySecret(request.objective) || containsLikelySecret(request.patch)) {
+      return yield* Effect.fail(fail(
+        "UnsupportedPatch",
+        "scan-publication-content",
+        "Publication was blocked because its public content resembles a credential",
+      ));
+    }
     const parsedRepository = yield* parsePublicGithubRepository(request.repositoryUrl).pipe(
       Effect.mapError((error) => fail("UnsupportedRepository", "decode-repository", error.message)),
     );
@@ -863,6 +880,7 @@ const statusFailure = (
 export const makeGitHubPublicationPort = (
   token: Redacted.Redacted<string>,
   fetchImplementation: typeof fetch = fetch,
+  publisherLogin?: string,
 ): GitHubPublicationPort => {
   const requestRaw = <A, I>(options: GitHubRequestOptions<A, I>) => Effect.gen(function* () {
     const response = yield* Effect.tryPromise({
@@ -964,11 +982,15 @@ export const makeGitHubPublicationPort = (
   });
 
   return {
-    authenticatedLogin: () => requiredRequest({
-      operation: "authenticate-github-publisher",
-      path: "/user",
-      schema: GitHubUserSchema,
-    }).pipe(Effect.map((value) => value.login)),
+    // Installation tokens authenticate an App installation rather than a User,
+    // so their publisher namespace is decoded from deployment configuration.
+    authenticatedLogin: publisherLogin === undefined
+      ? () => requiredRequest({
+          operation: "authenticate-github-publisher",
+          path: "/user",
+          schema: GitHubUserSchema,
+        }).pipe(Effect.map((value) => value.login))
+      : () => Effect.succeed(publisherLogin),
     getRepository,
     ensureFork: (login, upstream) => Effect.gen(function* () {
       const existing = yield* getRepositoryOptional(login, upstream.name);

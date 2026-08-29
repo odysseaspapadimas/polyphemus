@@ -7,6 +7,10 @@ const GitHubPullRequestUrl = Schema.String.check(
   Schema.isPattern(/^https:\/\/github\.com\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+\/pull\/\d+$/),
 );
 const PositiveInteger = Schema.Number.check(Schema.isInt(), Schema.isGreaterThan(0));
+export const MAX_PULL_REQUEST_PUBLICATION_ATTEMPTS = 5;
+const PublicationAttempt = PositiveInteger.check(
+  Schema.isLessThanOrEqualTo(MAX_PULL_REQUEST_PUBLICATION_ATTEMPTS),
+);
 
 export const PullRequestPublicationStatusSchema = Schema.Literals([
   "pending",
@@ -62,6 +66,7 @@ export type PullRequestPublicationEvidence = typeof PullRequestPublicationEviden
 export const PullRequestPublicationSnapshotSchema = Schema.Struct({
   version: Schema.Literal(1),
   publicationId: RequiredText,
+  attempt: PublicationAttempt.pipe(Schema.withDecodingDefaultKey(Effect.succeed(1))),
   sourceRunId: RequiredText,
   patchArtifactKey: RequiredText,
   publicationArtifactKey: Schema.NullOr(RequiredText),
@@ -85,6 +90,7 @@ export const StartPullRequestPublicationInputSchema = Schema.Struct({
   taskId: RequiredText,
   runId: RequiredText,
   publicationId: RequiredText,
+  attempt: PublicationAttempt.pipe(Schema.withDecodingDefaultKey(Effect.succeed(1))),
   patchArtifactKey: RequiredText,
   baseSha: Sha,
   branch: RequiredText,
@@ -97,6 +103,7 @@ export const MarkPullRequestPublicationInputSchema = Schema.Struct({
   taskId: RequiredText,
   runId: RequiredText,
   publicationId: RequiredText,
+  attempt: PublicationAttempt.pipe(Schema.withDecodingDefaultKey(Effect.succeed(1))),
   status: Schema.Literals(["preparing", "publishing"] as const),
   activity: RequiredText,
   now: RequiredText,
@@ -106,6 +113,7 @@ export const CompletePullRequestPublicationInputSchema = Schema.Struct({
   taskId: RequiredText,
   runId: RequiredText,
   publicationId: RequiredText,
+  attempt: PublicationAttempt.pipe(Schema.withDecodingDefaultKey(Effect.succeed(1))),
   publicationArtifactKey: RequiredText,
   evidence: PullRequestPublicationEvidenceSchema,
   now: RequiredText,
@@ -115,10 +123,20 @@ export const FailPullRequestPublicationInputSchema = Schema.Struct({
   taskId: RequiredText,
   runId: RequiredText,
   publicationId: RequiredText,
+  attempt: PublicationAttempt.pipe(Schema.withDecodingDefaultKey(Effect.succeed(1))),
   publicationArtifactKey: Schema.NullOr(RequiredText),
   failure: PullRequestPublicationFailureSchema,
   now: RequiredText,
 });
+
+export const RetryPullRequestPublicationInputSchema = Schema.Struct({
+  taskId: RequiredText,
+  runId: RequiredText,
+  publicationId: RequiredText,
+  now: RequiredText,
+});
+export type RetryPullRequestPublicationInput =
+  typeof RetryPullRequestPublicationInputSchema.Type;
 
 export const RepositoryPublicationRequestSchema = Schema.Struct({
   taskId: RequiredText,
@@ -144,6 +162,7 @@ export const PullRequestPublicationArtifactSchema = Schema.Struct({
   taskId: RequiredText,
   runId: RequiredText,
   publicationId: RequiredText,
+  attempt: PublicationAttempt.pipe(Schema.withDecodingDefaultKey(Effect.succeed(1))),
   patchArtifactKey: RequiredText,
   baseSha: Sha,
   createdAt: RequiredText,
@@ -166,6 +185,7 @@ export const PullRequestPublicationWorkflowResultSchema = Schema.Union([
     taskId: RequiredText,
     runId: RequiredText,
     publicationId: RequiredText,
+    attempt: PublicationAttempt.pipe(Schema.withDecodingDefaultKey(Effect.succeed(1))),
     publicationArtifactKey: RequiredText,
     evidence: PullRequestPublicationEvidenceSchema,
   }),
@@ -174,12 +194,26 @@ export const PullRequestPublicationWorkflowResultSchema = Schema.Union([
     taskId: RequiredText,
     runId: RequiredText,
     publicationId: RequiredText,
+    attempt: PublicationAttempt.pipe(Schema.withDecodingDefaultKey(Effect.succeed(1))),
     publicationArtifactKey: Schema.NullOr(RequiredText),
     failure: PullRequestPublicationFailureSchema,
   }),
 ]);
 export type PullRequestPublicationWorkflowResult =
   typeof PullRequestPublicationWorkflowResultSchema.Type;
+
+export const pullRequestPublicationArtifactKey = (
+  taskId: string,
+  runId: string,
+  attempt: number,
+): string => attempt === 1
+  ? `repository-tasks/${taskId}/agent-runs/${runId}/pull-request-publication.json`
+  : `repository-tasks/${taskId}/agent-runs/${runId}/pull-request-publication-attempt-${attempt}.json`;
+
+export const pullRequestPublicationWorkflowId = (
+  publicationId: string,
+  attempt: number,
+): string => attempt === 1 ? publicationId : `${publicationId}-attempt-${attempt}`;
 
 export class InvalidPullRequestPublicationData extends Schema.TaggedErrorClass<InvalidPullRequestPublicationData>()(
   "InvalidPullRequestPublicationData",

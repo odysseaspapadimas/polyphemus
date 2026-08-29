@@ -3,6 +3,8 @@ import * as Cause from "effect/Cause";
 import * as Config from "effect/Config";
 import * as Effect from "effect/Effect";
 import { RunArtifactsBucket } from "./RunArtifactsBucket.ts";
+import RunAdmissionCoordinator from "./RunAdmissionCoordinator.ts";
+import { pullRequestPublicationWorkflowId } from "./domain/pull-request-publication.ts";
 import PullRequestPublicationWorkflow from "./PullRequestPublicationWorkflow.ts";
 import { SandboxRuntimeWorker } from "./SandboxRuntimeWorker.ts";
 import {
@@ -56,6 +58,7 @@ const failedArtifactKey = (taskId: string, runId: string): string =>
 
 const makeRepositoryRunWorkflow = Effect.gen(function* () {
   const taskCoordinators = yield* RepositoryTaskCoordinator;
+  const admissions = yield* RunAdmissionCoordinator;
   const publicationWorkflow = yield* PullRequestPublicationWorkflow;
   const bucket = yield* Cloudflare.R2.ReadWriteBucket(RunArtifactsBucket);
   const sandboxRuntimeResource = yield* SandboxRuntimeWorker;
@@ -68,6 +71,18 @@ const makeRepositoryRunWorkflow = Effect.gen(function* () {
     const coordinator = taskCoordinators.getByName(input.taskId);
     const handle = { taskId: input.taskId, runId: input.runId };
     const processHandle = { sandboxId: input.sandboxId, processId: input.processId };
+    const releaseAdmission = () => Cloudflare.Workflows.task(
+      "release-run-admission",
+      admissions.getByName(input.ownerId).release({
+        ownerId: input.ownerId,
+        runId: input.runId,
+        now: new Date().toISOString(),
+      }).pipe(Effect.as({ released: true as const }), Effect.orDie),
+      {
+        retries: { limit: 5, delay: "2 seconds", backoff: "exponential" },
+        timeout: "2 minutes",
+      },
+    );
 
     const persistFailure = (
       stage: RepositoryTaskStage,
@@ -134,6 +149,7 @@ const makeRepositoryRunWorkflow = Effect.gen(function* () {
             timeout: "2 minutes",
           },
         );
+        yield* releaseAdmission();
         return {
           status: "failed",
           taskId: input.taskId,
@@ -259,8 +275,9 @@ const makeRepositoryRunWorkflow = Effect.gen(function* () {
     }
 
     const artifactKey = completedArtifactKey(input.taskId, input.runId);
-    const publicationEligible = finalized.value.validated &&
-      finalized.value.patch.trim().length > 0 && finalized.value.changedFiles.length > 0;
+    const publicationEligible = input.runRequest.publishValidatedPatch === true &&
+      finalized.value.validated && finalized.value.patch.trim().length > 0 &&
+      finalized.value.changedFiles.length > 0;
     const completionNow = new Date().toISOString();
     const publicationId = `publication-${input.runId}`;
     const publicationBranch = `polyphemus/${input.taskId}`;
@@ -308,6 +325,7 @@ const makeRepositoryRunWorkflow = Effect.gen(function* () {
         timeout: "2 minutes",
       },
     );
+    yield* releaseAdmission();
     if (!completionOutcome.ok) {
       return {
         status: "failed",
@@ -327,6 +345,7 @@ const makeRepositoryRunWorkflow = Effect.gen(function* () {
         taskId: input.taskId,
         runId: input.runId,
         publicationId,
+        attempt: 1,
         patchArtifactKey: artifactKey,
         baseSha: finalized.value.baseSha,
         branch: publicationBranch,
@@ -339,7 +358,7 @@ const makeRepositoryRunWorkflow = Effect.gen(function* () {
         (yield* Cloudflare.Workflows.task(
           "start-pull-request-publication",
           publicationWorkflow.create({
-            id: publicationId,
+            id: pullRequestPublicationWorkflowId(publicationId, 1),
             params: publicationInput,
             retention: { successRetention: "30 days", errorRetention: "30 days" },
           }).pipe(

@@ -4,6 +4,7 @@ import * as Effect from "effect/Effect";
 import {
   decodePullRequestPublicationArtifact,
   decodePullRequestPublicationWorkflowInput,
+  pullRequestPublicationArtifactKey,
   type PullRequestPublicationArtifact,
   type PullRequestPublicationEvidence,
   type PullRequestPublicationFailure,
@@ -17,6 +18,10 @@ import {
   makeRepositoryPublisher,
   RepositoryPublicationFailed,
 } from "./RepositoryPublisher.ts";
+import {
+  decodeGitHubAppConfiguration,
+  issueGitHubAppInstallationToken,
+} from "./GitHubAppCredential.ts";
 import RepositoryTaskCoordinator from "./RepositoryTaskCoordinator.ts";
 import { RunArtifactsBucket } from "./RunArtifactsBucket.ts";
 
@@ -35,9 +40,6 @@ const STORAGE_RETRIES = {
 type Outcome<A> =
   | { readonly ok: true; readonly value: A }
   | { readonly ok: false; readonly failure: PullRequestPublicationFailure };
-
-const publicationArtifactKey = (taskId: string, runId: string): string =>
-  `repository-tasks/${taskId}/agent-runs/${runId}/pull-request-publication.json`;
 
 const infrastructureFailure = (
   operation: string,
@@ -95,8 +97,21 @@ const durableCapture = <A, E, R>(
 const makePullRequestPublicationWorkflow = Effect.gen(function* () {
   const coordinators = yield* RepositoryTaskCoordinator;
   const bucket = yield* Cloudflare.R2.ReadWriteBucket(RunArtifactsBucket);
-  const githubToken = yield* Config.redacted("GITHUB_TOKEN").pipe(Effect.orDie);
-  const publisher = makeRepositoryPublisher(makeGitHubPublicationPort(githubToken));
+  const githubApp = yield* Effect.all({
+    appId: Config.string("GITHUB_APP_ID"),
+    installationId: Config.string("GITHUB_APP_INSTALLATION_ID"),
+    privateKey: Config.redacted("GITHUB_APP_PRIVATE_KEY"),
+    publisherLogin: Config.string("GITHUB_PUBLISHER_LOGIN"),
+  }).pipe(
+    Effect.flatMap(decodeGitHubAppConfiguration),
+    Effect.orDie,
+  );
+  const publish = (request: RepositoryPublicationRequest) =>
+    issueGitHubAppInstallationToken(githubApp).pipe(
+      Effect.flatMap((token) => makeRepositoryPublisher(
+        makeGitHubPublicationPort(token, fetch, githubApp.publisherLogin),
+      ).publish(request)),
+    );
 
   const readPublicationRequest = (
     input: PullRequestPublicationWorkflowInput,
@@ -117,6 +132,7 @@ const makePullRequestPublicationWorkflow = Effect.gen(function* () {
       const selectedRun = runIndex < 0 ? undefined : snapshot?.agentRuns[runIndex];
       if (snapshot === null || snapshot.taskId !== input.taskId || selectedRun === undefined ||
           selectedRun.publication?.publicationId !== input.publicationId ||
+          selectedRun.publication.attempt !== input.attempt ||
           selectedRun.publication.patchArtifactKey !== input.patchArtifactKey ||
           selectedRun.publication.baseSha !== input.baseSha ||
           selectedRun.publication.branch !== input.branch ||
@@ -280,8 +296,9 @@ const makePullRequestPublicationWorkflow = Effect.gen(function* () {
       taskId: input.taskId,
       runId: input.runId,
       publicationId: input.publicationId,
+      attempt: input.attempt,
     };
-    const key = publicationArtifactKey(input.taskId, input.runId);
+    const key = pullRequestPublicationArtifactKey(input.taskId, input.runId, input.attempt);
 
     const failTerminally = (
       failure: PullRequestPublicationFailure,
@@ -295,6 +312,7 @@ const makePullRequestPublicationWorkflow = Effect.gen(function* () {
             taskId: input.taskId,
             runId: input.runId,
             publicationId: input.publicationId,
+            attempt: input.attempt,
             patchArtifactKey: input.patchArtifactKey,
             baseSha: input.baseSha,
             createdAt: input.now,
@@ -404,7 +422,7 @@ const makePullRequestPublicationWorkflow = Effect.gen(function* () {
 
       outcome = yield* Cloudflare.Workflows.task(
         `publish-draft-pull-request-${String(attempt).padStart(2, "0")}`,
-        capture(publisher.publish(prepared.value)),
+        capture(publish(prepared.value)),
       );
       if (outcome.ok || !outcome.failure.retryable || attempt === MAX_PUBLICATION_ATTEMPTS) break;
       yield* Cloudflare.Workflows.sleep(
@@ -419,6 +437,7 @@ const makePullRequestPublicationWorkflow = Effect.gen(function* () {
       taskId: input.taskId,
       runId: input.runId,
       publicationId: input.publicationId,
+      attempt: input.attempt,
       patchArtifactKey: input.patchArtifactKey,
       baseSha: input.baseSha,
       createdAt: input.now,

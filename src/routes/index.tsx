@@ -22,6 +22,7 @@ import {
   getRepositoryRunResult,
   getRepositoryRunStatus,
   listRepositoryTasks,
+  retryPullRequestPublication,
   startAdditionalRepositoryRun,
   startRepositoryRun,
   type RepositoryRunRequest,
@@ -34,7 +35,10 @@ import {
   type RunArtifact,
 } from "../domain/repository-task.ts";
 import type { PullRequestPublicationSnapshot } from "../domain/pull-request-publication.ts";
-import type { SandboxRunResult } from "../domain/sandbox-run.ts";
+import {
+  hasStructuredAgentReport,
+  type SandboxRunResult,
+} from "../domain/sandbox-run.ts";
 import {
   hasRecoverableRepositoryTaskActivity,
   newerRepositoryTaskSnapshot,
@@ -93,6 +97,7 @@ function Home() {
   const [request, setRequest] = useState<RepositoryRunRequest>({
     repositoryUrl: FIXTURE_REPOSITORY,
     task: FIXTURE_TASK,
+    publishValidatedPatch: true,
   });
   const [handle, setHandle] = useState<RepositoryRunHandle | null>(null);
   const [hydratedTaskId, setHydratedTaskId] = useState<string | null>(null);
@@ -181,6 +186,17 @@ function Home() {
     },
   });
 
+  const retryPublicationMutation = useMutation({
+    mutationFn: (runHandle: RepositoryRunHandle) => retryPullRequestPublication({ data: runHandle }),
+    onSuccess: async (snapshot) => {
+      queryClient.setQueryData<RepositoryTaskSnapshot>(
+        ["repository-task", snapshot.taskId],
+        (current) => newerRepositoryTaskSnapshot(current, snapshot),
+      );
+      await queryClient.invalidateQueries({ queryKey: ["repository-task-index"] });
+    },
+  });
+
   const cancelMutation = useMutation({
     mutationFn: (runHandle: RepositoryRunHandle) => cancelRepositoryRun({ data: runHandle }),
     onSuccess: async (snapshot) => {
@@ -198,9 +214,11 @@ function Home() {
   });
 
   const busy = startMutation.isPending || rerunMutation.isPending ||
-    isActiveRun(activeRun) || hasRecoverableRepositoryTaskActivity(taskSnapshot);
-  const shellError = startMutation.error ?? rerunMutation.error ?? statusQuery.error ??
-    taskIndexQuery.error ?? identityQuery.error ?? resultQuery.error ?? cancelMutation.error;
+    retryPublicationMutation.isPending || isActiveRun(activeRun) ||
+    hasRecoverableRepositoryTaskActivity(taskSnapshot);
+  const shellError = startMutation.error ?? rerunMutation.error ??
+    retryPublicationMutation.error ?? statusQuery.error ?? taskIndexQuery.error ??
+    identityQuery.error ?? resultQuery.error ?? cancelMutation.error;
   const artifact = resultQuery.data;
 
   return (
@@ -211,7 +229,10 @@ function Home() {
           <span>POLYPHEMUS</span>
         </a>
         <div className="header-promise">One issue. One branch. One focused agent.</div>
-        <div className="system-status"><span /> {identityQuery.data?.userId ?? "Private preview"}</div>
+        <div className="identity-actions">
+          <div className="system-status"><span /> {identityQuery.data?.userId ?? "Authenticated user"}</div>
+          <a href="/cdn-cgi/access/logout">Sign out</a>
+        </div>
       </header>
 
       <section className="hero">
@@ -276,7 +297,11 @@ function Home() {
       {shellError ? <div className="global-error" role="alert">{errorMessage(shellError)}</div> : null}
       {artifact?.terminal.status === "completed" ? <RunResultPanel result={artifact.terminal.result} /> : null}
       {currentRun?.publication ? (
-        <PullRequestPublicationPanel publication={currentRun.publication} />
+        <PullRequestPublicationPanel
+          publication={currentRun.publication}
+          retrying={retryPublicationMutation.isPending}
+          onRetry={() => handle !== null && retryPublicationMutation.mutate(handle)}
+        />
       ) : null}
       {artifact?.terminal.status === "failed" ? <TerminalRunPanel artifact={artifact} /> : null}
       {artifact?.terminal.status === "cancelled" ? <TerminalRunPanel artifact={artifact} /> : null}
@@ -322,6 +347,7 @@ function RunRequestPanel(props: Readonly<{
               repositoryUrl: event.target.value,
             })}
             placeholder="https://github.com/owner/repository"
+            maxLength={2_048}
             spellCheck={false}
           />
         </div>
@@ -334,7 +360,22 @@ function RunRequestPanel(props: Readonly<{
           value={props.request.task}
           onChange={(event) => props.onChange({ ...props.request, task: event.target.value })}
           placeholder="Describe one bounded repository change"
+          maxLength={16_384}
         />
+      </label>
+
+      <label className="publication-consent">
+        <input
+          type="checkbox"
+          checked={props.request.publishValidatedPatch === true}
+          onChange={(event) => props.onChange({
+            ...props.request,
+            publishValidatedPatch: event.target.checked,
+          })}
+        />
+        <span>
+          Publish a non-empty Validated Patch as a public draft pull request using the Polyphemus GitHub App.
+        </span>
       </label>
 
       <button className="primary-command" type="submit" disabled={!valid || props.busy}>
@@ -342,8 +383,7 @@ function RunRequestPanel(props: Readonly<{
         {props.busy ? "Task activity active" : props.existingTask ? "Run again" : "Start Agent Run"}
       </button>
       <p className="authorization-note">
-        Submitting authorizes one isolated Agent Run. Pi never receives GitHub credentials;
-        a non-empty Validated Patch is published separately as a draft pull request.
+        Submitting authorizes one isolated Agent Run and sends the objective and repository context to the model provider. Pi never receives GitHub credentials. Publication happens only when the option above is selected.
       </p>
       {props.error ? <p className="inline-error">{errorMessage(props.error)}</p> : null}
     </form>
@@ -509,8 +549,10 @@ function RunProgressPanel(props: Readonly<{
   );
 }
 
-function PullRequestPublicationPanel({ publication }: Readonly<{
+function PullRequestPublicationPanel({ publication, retrying, onRetry }: Readonly<{
   publication: PullRequestPublicationSnapshot;
+  retrying: boolean;
+  onRetry: () => void;
 }>) {
   const complete = publication.status === "complete" && publication.evidence !== null;
   const failed = publication.status === "failed" && publication.failure !== null;
@@ -532,7 +574,9 @@ function PullRequestPublicationPanel({ publication }: Readonly<{
             {" · "}<code>{publication.evidence!.headSha.slice(0, 12)}</code>
           </p>
         ) : failed ? (
-          <p>{publication.failure!.message} · {humanize(publication.failure!.code)}</p>
+          <p>
+            {publication.failure!.message} · {humanize(publication.failure!.code)} · attempt {publication.attempt}
+          </p>
         ) : (
           <p>The persisted Validated Patch is being published after Pi has terminated.</p>
         )}
@@ -546,8 +590,18 @@ function PullRequestPublicationPanel({ publication }: Readonly<{
         >
           Draft PR #{publication.evidence!.pullRequestNumber} <ExternalLink size={14} />
         </a>
+      ) : failed ? (
+        <button
+          className="publication-link"
+          type="button"
+          disabled={retrying}
+          onClick={onRetry}
+        >
+          {retrying ? <LoaderCircle className="spin" size={14} /> : <GitPullRequest size={14} />}
+          {retrying ? "Retrying" : "Retry publication"}
+        </button>
       ) : (
-        <span className="idle-badge">{humanize(publication.status)}</span>
+        <span className="idle-badge">{humanize(publication.status)} · attempt {publication.attempt}</span>
       )}
     </section>
   );
@@ -581,11 +635,17 @@ function TerminalRunPanel({ artifact }: Readonly<{ artifact: RunArtifact }>) {
 
 function RunResultPanel({ result }: Readonly<{ result: SandboxRunResult }>) {
   const passed = result.validation.filter((check) => check.passed).length;
+  const hasAgentReport = hasStructuredAgentReport(result.pi);
+  const headline = hasAgentReport
+    ? result.pi.summary
+    : result.validated
+      ? "Validated Patch ready; the agent report is unavailable."
+      : "Run Result ready; the agent report is unavailable.";
   return (
     <section className="result-section" aria-label="Agent Run result">
       <div className="result-banner" data-validated={result.validated ? "true" : "false"}>
         <div className="result-icon"><ShieldCheck size={26} /></div>
-        <div><p className="eyebrow">Run Result</p><h2>{result.pi.summary}</h2></div>
+        <div><p className="eyebrow">Run Result</p><h2>{headline}</h2></div>
         <div className="validation-score"><strong>{passed}/{result.validation.length}</strong><span>checks passed</span></div>
       </div>
 
@@ -612,8 +672,11 @@ function RunResultPanel({ result }: Readonly<{ result: SandboxRunResult }>) {
             <div className="section-title"><Clock3 size={18} /><h3>Run budget</h3></div>
             <dl className="budget-list">
               <div><dt>Commands</dt><dd>{result.pi.budgetUsage.commands.used} / {result.pi.budgetUsage.commands.limit}</dd></div>
-              <div><dt>Agent time</dt><dd>{formatDuration(result.pi.budgetUsage.wallClock.elapsedMs)}</dd></div>
+              <div><dt>Agent time</dt><dd>{formatDuration(result.timing.agentMs)}</dd></div>
+              <div><dt>Validation time</dt><dd>{formatDuration(result.timing.validationMs)}</dd></div>
+              <div><dt>Finalization time</dt><dd>{formatDuration(result.timing.finalizationMs)}</dd></div>
               <div><dt>Model tokens</dt><dd>{result.pi.budgetUsage.model.totalTokens.toLocaleString()}</dd></div>
+              <div><dt>Model retries</dt><dd>{result.pi.budgetUsage.model.retries}</dd></div>
               <div><dt>Termination</dt><dd>{humanize(result.pi.terminationReason)}</dd></div>
             </dl>
           </article>
@@ -621,7 +684,16 @@ function RunResultPanel({ result }: Readonly<{ result: SandboxRunResult }>) {
       </div>
 
       <div className="result-grid lower-result-grid">
-        <article className="panel prose-panel"><p className="eyebrow">Findings</p><ul>{result.pi.findings.map((finding) => <li key={finding}>{finding}</li>)}</ul></article>
+        <article className="panel prose-panel">
+          <p className="eyebrow">Agent report</p>
+          {hasAgentReport ? (
+            <ul>{result.pi.findings.map((finding) => <li key={finding}>{finding}</li>)}</ul>
+          ) : (
+            <p className="report-unavailable">
+              Pi stopped without calling <code>finish_run</code>, so Polyphemus does not present fallback text as agent-reported findings. The Patch and validation above are independently observed evidence.
+            </p>
+          )}
+        </article>
         <article className="panel prose-panel"><p className="eyebrow">Run Assumptions</p><ul>{result.runAssumptions.map((assumption) => <li key={assumption}>{assumption}</li>)}</ul></article>
       </div>
     </section>

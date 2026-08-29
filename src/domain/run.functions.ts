@@ -13,6 +13,7 @@ import {
   GetRunArtifactResultSchema,
   ListRepositoryTasksResultSchema,
   RepositoryAgentFailureTagSchema,
+  RetryPullRequestPublicationResultSchema,
   StartAdditionalRepositoryRunResultSchema,
 } from "./repository-agent-rpc.ts";
 import { ProductIdentitySchema } from "./product-identity.ts";
@@ -179,6 +180,16 @@ export const getRepositoryRunResult = createServerFn({ method: "POST" })
       "getRunArtifact",
       GetRunArtifactResultSchema,
       (backend, principal) => backend.getRunArtifact({ principal, handle: data }),
+    ).pipe(Effect.mapError(toServerError)),
+  ));
+
+export const retryPullRequestPublication = createServerFn({ method: "POST" })
+  .validator((input: unknown) => Schema.decodeUnknownSync(RepositoryRunHandleSchema)(input))
+  .handler(({ data }) => Effect.runPromise(
+    callRepositoryAgent(
+      "retryPullRequestPublication",
+      RetryPullRequestPublicationResultSchema,
+      (backend, principal) => backend.retryPullRequestPublication({ principal, handle: data }),
     ).pipe(Effect.mapError(toServerError)),
   ));
 

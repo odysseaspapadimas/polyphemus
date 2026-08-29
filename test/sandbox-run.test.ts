@@ -4,7 +4,9 @@ import * as Option from "effect/Option";
 import {
   decodePiActivityEvent,
   decodeSandboxRunStartRequest,
+  hasStructuredAgentReport,
   InvalidSandboxRequest,
+  type PiRunResult,
 } from "../src/domain/sandbox-run.ts";
 
 describe("sandbox run contracts", () => {
@@ -31,7 +33,29 @@ describe("sandbox run contracts", () => {
     }
   });
 
+  test("rejects objectives above the product boundary", async () => {
+    const exit = await Effect.runPromiseExit(decodeSandboxRunStartRequest({
+      sandboxId: "run-1",
+      repositoryUrl: "https://github.com/example/fixture",
+      task: "x".repeat(16_385),
+    }));
+
+    expect(exit._tag).toBe("Failure");
+  });
+
   test("ignores non-product runner output", () => {
     expect(Option.isNone(decodePiActivityEvent({ type: "debug", value: "raw" }))).toBe(true);
+  });
+
+  test("distinguishes an explicit agent report from fallback completion", () => {
+    const result = {
+      terminationReason: "finish_run",
+    } as PiRunResult;
+
+    expect(hasStructuredAgentReport(result)).toBe(true);
+    expect(hasStructuredAgentReport({
+      ...result,
+      terminationReason: "missing_structured_result",
+    })).toBe(false);
   });
 });

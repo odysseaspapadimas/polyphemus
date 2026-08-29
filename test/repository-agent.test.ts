@@ -4,9 +4,13 @@ import {
   addAgentRun,
   attachWorkflow,
   cancelRun,
+  completeRun,
   createRepositoryTaskSnapshot,
+  failPullRequestPublication,
   failRun,
   requestRunCancellation,
+  retryPullRequestPublication,
+  startPullRequestPublication,
   RepositoryTaskNotFound,
   type RepositoryTaskSnapshot,
   type RunArtifact,
@@ -17,19 +21,29 @@ import {
   type RepositoryAgentPorts,
 } from "../src/RepositoryAgent.ts";
 import { RepositoryAgentBackendFailed } from "../src/RepositoryAgentError.ts";
+import { RunAdmissionRejected } from "../src/RunAdmissionCoordinator.ts";
 
 const NOW = "2026-07-29T12:00:00.000Z";
 
 const makeFixture = (options: {
   readonly failWorkflowStart?: boolean;
   readonly failSandboxCancel?: boolean;
+  readonly rejectAdmission?: boolean;
 } = {}) => {
   let snapshot: RepositoryTaskSnapshot | null = null;
   const index = new Map<string, RepositoryTaskIndexEntry>();
   const artifacts = new Map<string, RunArtifact>();
+  const publicationWorkflowInputs: unknown[] = [];
   const ids = ["task-id", "run-id", "sandbox-id", "next-run", "next-sandbox"];
 
   const ports: RepositoryAgentPorts = {
+    acquireRunAdmission: () => options.rejectAdmission
+      ? Effect.fail(new RunAdmissionRejected({
+          message: "Daily Agent Run limit reached",
+          retryAfterSeconds: 60,
+        }))
+      : Effect.void,
+    releaseRunAdmission: () => Effect.void,
     createTask: (input) => {
       snapshot = createRepositoryTaskSnapshot(input);
       return Effect.succeed(snapshot);
@@ -52,6 +66,15 @@ const makeFixture = (options: {
     listIndex: (ownerId) => Effect.succeed(
       [...index.values()].filter((entry) => entry.ownerId === ownerId),
     ),
+    retryPublication: (input) => {
+      if (snapshot === null) return Effect.fail(new RepositoryTaskNotFound({ message: "missing" }));
+      snapshot = retryPullRequestPublication(snapshot, input);
+      return Effect.succeed(snapshot);
+    },
+    startPublicationWorkflow: (input) => Effect.sync(() => {
+      publicationWorkflowInputs.push(input);
+      return { id: `${input.publicationId}-attempt-${input.attempt}` };
+    }),
     startWorkflow: (input) => options.failWorkflowStart
       ? Effect.fail(new RepositoryAgentBackendFailed({
           operation: "start-workflow",
@@ -107,6 +130,45 @@ const makeFixture = (options: {
   return {
     agent: makeRepositoryAgent(ports),
     artifacts,
+    publicationWorkflowInputs,
+    failPublication(handle: { readonly taskId: string; readonly runId: string }) {
+      if (snapshot === null) throw new Error("missing snapshot");
+      const artifactKey = `repository-tasks/${handle.taskId}/agent-runs/${handle.runId}/completed.json`;
+      snapshot = completeRun(
+        { ...snapshot, agentRuns: snapshot.agentRuns.map((run) =>
+          run.runId === handle.runId ? { ...run, baseSha: "a".repeat(40) } : run) },
+        handle.runId,
+        artifactKey,
+        true,
+        true,
+        "destroyed",
+        NOW,
+      );
+      snapshot = startPullRequestPublication(snapshot, {
+        ...handle,
+        publicationId: `publication-${handle.runId}`,
+        attempt: 1,
+        patchArtifactKey: artifactKey,
+        baseSha: "a".repeat(40),
+        branch: `polyphemus/${handle.taskId}`,
+        now: NOW,
+      });
+      snapshot = failPullRequestPublication(
+        snapshot,
+        handle.runId,
+        `publication-${handle.runId}`,
+        1,
+        `repository-tasks/${handle.taskId}/agent-runs/${handle.runId}/pull-request-publication.json`,
+        {
+          code: "PublicationFailed",
+          message: "GitHub rejected the operation",
+          operation: "create-blob",
+          retryable: false,
+          statusCode: 403,
+        },
+        NOW,
+      );
+    },
     get snapshot() { return snapshot; },
   };
 };
@@ -123,6 +185,19 @@ describe("RepositoryAgent application service", () => {
     expect(fixture.snapshot?.ownerId).toBe("developer@example.com");
     expect(fixture.snapshot?.runRequest.repositoryUrl).toBe("https://github.com/example/repository");
     expect(fixture.snapshot?.agentRuns[0]?.workflowId).toBe("run-run-id");
+  });
+
+  test("rejects work before creating a task when the owner quota is exhausted", async () => {
+    const fixture = makeFixture({ rejectAdmission: true });
+    const failure = await Effect.runPromise(fixture.agent.createRepositoryTask({
+      repositoryUrl: "https://github.com/example/repository",
+      task: "Fix one bounded defect",
+    }, { userId: "owner@example.com" }).pipe(
+      Effect.match({ onFailure: (error) => error, onSuccess: () => null }),
+    ));
+
+    expect(failure?._tag).toBe("RunAdmissionRejected");
+    expect(fixture.snapshot).toBeNull();
   });
 
   test("hides another principal's Repository Task", async () => {
@@ -176,6 +251,31 @@ describe("RepositoryAgent application service", () => {
     expect(artifact?.terminal).toMatchObject({
       status: "cancelled",
       cancellation: { cleanup: "failed" },
+    });
+  });
+
+  test("retries publication from the existing authorized Validated Patch", async () => {
+    const fixture = makeFixture();
+    const handle = await Effect.runPromise(fixture.agent.createRepositoryTask({
+      repositoryUrl: "https://github.com/example/repository",
+      task: "Fix one bounded defect",
+    }, { userId: "owner@example.com" }));
+    fixture.failPublication(handle);
+
+    const retried = await Effect.runPromise(
+      fixture.agent.retryPullRequestPublication(handle, { userId: "owner@example.com" }),
+    );
+    expect(retried.agentRuns[0]?.publication).toMatchObject({
+      attempt: 2,
+      status: "pending",
+      failure: null,
+    });
+    expect(fixture.publicationWorkflowInputs).toHaveLength(1);
+    expect(fixture.publicationWorkflowInputs[0]).toMatchObject({
+      taskId: handle.taskId,
+      runId: handle.runId,
+      publicationId: `publication-${handle.runId}`,
+      attempt: 2,
     });
   });
 

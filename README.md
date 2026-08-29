@@ -2,7 +2,7 @@
 
 Polyphemus is a supervised repository agent that turns one bounded objective for a public GitHub repository into an inspectable, independently validated Patch and, when validation passes, a draft pull request.
 
-> **Prototype:** Polyphemus currently targets a private single-user preview and supported public repositories. It does not merge pull requests or give GitHub credentials to the repository agent.
+> **Prototype:** Polyphemus currently targets authenticated users and supported public repositories. It does not merge pull requests or give GitHub credentials to the repository agent.
 
 ## How it works
 
@@ -36,7 +36,7 @@ See [`CONTEXT.md`](./CONTEXT.md) for the complete product vocabulary.
 - Agent-reported claims remain distinct from independently observed validation.
 - Pull Request Publication creates a draft PR; it never merges it.
 
-The current product and threat model are described in [`docs/mvp-spec.md`](./docs/mvp-spec.md). The original feasibility work remains in [`docs/sandbox-pi-feasibility-spike.md`](./docs/sandbox-pi-feasibility-spike.md).
+The current product and threat model are described in [`docs/mvp-spec.md`](./docs/mvp-spec.md). See [`SECURITY.md`](./SECURITY.md) for vulnerability reporting and [`PRIVACY.md`](./PRIVACY.md) for current data handling and retention. The original feasibility work remains in [`docs/sandbox-pi-feasibility-spike.md`](./docs/sandbox-pi-feasibility-spike.md).
 
 ## Stack
 
@@ -53,7 +53,7 @@ The current product and threat model are described in [`docs/mvp-spec.md`](./doc
 - Docker
 - A Cloudflare account authenticated for Alchemy/Wrangler
 - An OpenCode Go API key
-- A GitHub credential for the account that will own Agent Branches and draft PRs
+- A GitHub App installation for the account that will own Agent Branches and draft PRs
 
 ## Configuration
 
@@ -68,12 +68,15 @@ Set these values without committing them:
 ```dotenv
 OPENCODE_API_KEY=
 SANDBOX_API_TOKEN=
-GITHUB_TOKEN=
+GITHUB_APP_ID=
+GITHUB_APP_INSTALLATION_ID=
+GITHUB_APP_PRIVATE_KEY=
+GITHUB_PUBLISHER_LOGIN=
 ```
 
-`SANDBOX_API_TOKEN` should be a strong random value. The GitHub credential must be able to create public forks, branches, commits, and draft pull requests. For the prototype, a classic personal access token with `public_repo` scope is the simplest option.
+`SANDBOX_API_TOKEN` should be a strong random value. Create and install a GitHub App on the bot-owned account or organization named by `GITHUB_PUBLISHER_LOGIN`. Grant the installation **Contents** and **Pull requests** read/write access and access to the repositories it will publish from. Polyphemus signs a bounded App JWT and obtains a fresh, short-lived installation token inside each publication attempt; neither credential is given to Pi or persisted in Run Results. PEM private keys may use escaped `\\n` newlines in deployment secrets.
 
-Before deploying to another account or domain, update the single-user Cloudflare Access configuration in [`src/PreviewAccess.ts`](./src/PreviewAccess.ts).
+Cloudflare Access provides email one-time-PIN sign-up/sign-in. Set the optional `POLYPHEMUS_ACCESS_*` values to change the application domain, Access team domain, and organization without editing source. Each identity is isolated to its own Repository Tasks and is limited to one active Agent Run and ten starts per UTC day.
 
 ## Development
 
@@ -92,7 +95,7 @@ bun run typecheck
 bun run build
 ```
 
-The test suite covers domain transitions, RPC and persistence boundaries, Sandbox lifecycle and isolation, validation evidence, Patch decoding, GitHub publication, and deployed edge exposure.
+The test suite covers domain transitions, RPC and persistence boundaries, Sandbox lifecycle and isolation, validation evidence, Patch decoding, GitHub publication, and deployed edge exposure. GitHub Actions also performs a frozen install, typecheck, test, production build, critical dependency audit, and Sandbox image build/smoke test.
 
 ## Deployment
 
@@ -123,11 +126,12 @@ bun run test:deployed
 ## Current limitations
 
 - Public GitHub repositories only
-- Single-user Cloudflare Access preview
-- One active Agent Run per Repository Task
+- Email OTP authentication; no billing or team accounts yet
+- One active Agent Run per user and ten starts per UTC day
 - Fixed model provider and model route
 - Textual Patches within configured size limits
-- Draft pull requests only; no merge, release, or deployment authority
+- Draft pull requests only after explicit per-run consent; no merge, release, or deployment authority
+- Prototype retention has no self-service deletion yet; see [`PRIVACY.md`](./PRIVACY.md)
 
 ## License
 

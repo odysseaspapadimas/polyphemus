@@ -107,6 +107,7 @@ describe("Repository Task live snapshots", () => {
         publication: {
           version: 1 as const,
           publicationId: "publication-run-1",
+          attempt: 1,
           sourceRunId: "run-1",
           patchArtifactKey: "repository-tasks/task-1/agent-runs/run-1/completed.json",
           publicationArtifactKey: null,
