@@ -103,6 +103,8 @@ describe("Sandbox Runtime start adapter", () => {
       Sandbox: { getByName: () => sandbox },
       MODEL_PROXY_ORIGIN: "https://model-proxy.example.test",
       SANDBOX_API_TOKEN: secret,
+      VALIDATION_POLICY_SIGNING_KEY: secret,
+      MODEL_GRANT_SIGNING_KEY: secret,
     } as unknown as SandboxRuntimeEnv;
 
     const response = await handleSandboxRuntimeRequest(new Request(

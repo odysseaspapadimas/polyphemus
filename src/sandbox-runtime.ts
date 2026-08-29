@@ -159,6 +159,8 @@ export interface SandboxRuntimeEnv {
   readonly Sandbox: SandboxNamespace;
   readonly MODEL_PROXY_ORIGIN: string;
   readonly SANDBOX_API_TOKEN: string;
+  readonly VALIDATION_POLICY_SIGNING_KEY: string;
+  readonly MODEL_GRANT_SIGNING_KEY: string;
 }
 
 const json = (value: unknown, init?: ResponseInit): Response => Response.json(value, init);
@@ -784,7 +786,7 @@ const startRun = (request: Request, env: SandboxRuntimeEnv) => Effect.gen(functi
     scripts: manifest.scripts ?? {},
   });
   const policyAuthentication = yield* signValidationPolicy(
-    env.SANDBOX_API_TOKEN,
+    env.VALIDATION_POLICY_SIGNING_KEY,
     input.sandboxId,
     validationPolicy,
   );
@@ -832,7 +834,7 @@ const startRun = (request: Request, env: SandboxRuntimeEnv) => Effect.gen(functi
   yield* stopRepositoryProcesses(sandbox, "cleanup-baseline-processes");
 
   const modelProxyToken = yield* issueModelProxyToken(
-    env.SANDBOX_API_TOKEN,
+    env.MODEL_GRANT_SIGNING_KEY,
     input.sandboxId,
   ).pipe(
     Effect.mapError((error) => SandboxOperationFailed.fromUnknown("issue-model-proxy-token", error)),
@@ -1294,7 +1296,7 @@ const finalizeRun = (request: Request, env: SandboxRuntimeEnv) => Effect.gen(fun
     sandbox,
     input.sandboxId,
     input.processId,
-    env.SANDBOX_API_TOKEN,
+    env.VALIDATION_POLICY_SIGNING_KEY,
   ).pipe(
     Effect.matchEffect({
       onFailure: (error) => sandboxEffect("destroy-sandbox", () => sandbox.destroy()).pipe(

@@ -13,15 +13,9 @@ const decodeHostname = (value: string, name: string) => Schema.decodeUnknownEffe
 /** Email OTP provides sign-up/sign-in; product authorization remains in the application. */
 export const PreviewAccess = Effect.gen(function* () {
   const configured = yield* Effect.all({
-    applicationDomain: Config.string("POLYPHEMUS_ACCESS_DOMAIN").pipe(
-      Config.withDefault("polyphemus.odysseas-patra.workers.dev"),
-    ),
-    authDomain: Config.string("POLYPHEMUS_ACCESS_AUTH_DOMAIN").pipe(
-      Config.withDefault("odysseas-dev.cloudflareaccess.com"),
-    ),
-    organizationName: Config.string("POLYPHEMUS_ACCESS_ORGANIZATION").pipe(
-      Config.withDefault("odysseas-dev"),
-    ),
+    applicationDomain: Config.string("POLYPHEMUS_ACCESS_DOMAIN"),
+    authDomain: Config.string("POLYPHEMUS_ACCESS_AUTH_DOMAIN"),
+    organizationName: Config.string("POLYPHEMUS_ACCESS_ORGANIZATION"),
   });
   const applicationDomain = yield* decodeHostname(
     configured.applicationDomain,

@@ -68,15 +68,17 @@ Set these values without committing them:
 ```dotenv
 OPENCODE_API_KEY=
 SANDBOX_API_TOKEN=
+VALIDATION_POLICY_SIGNING_KEY=
+MODEL_GRANT_SIGNING_KEY=
 GITHUB_APP_ID=
 GITHUB_APP_INSTALLATION_ID=
 GITHUB_APP_PRIVATE_KEY=
 GITHUB_PUBLISHER_LOGIN=
 ```
 
-`SANDBOX_API_TOKEN` should be a strong random value. Create and install a GitHub App on the bot-owned account or organization named by `GITHUB_PUBLISHER_LOGIN`. Grant the installation **Contents** and **Pull requests** read/write access and access to the repositories it will publish from. Polyphemus signs a bounded App JWT and obtains a fresh, short-lived installation token inside each publication attempt; neither credential is given to Pi or persisted in Run Results. PEM private keys may use escaped `\\n` newlines in deployment secrets.
+`SANDBOX_API_TOKEN`, `VALIDATION_POLICY_SIGNING_KEY`, and `MODEL_GRANT_SIGNING_KEY` must be separate strong random values so runtime authorization, validation-policy authentication, and model grants can be rotated independently. Create and install a GitHub App on the bot-owned account or organization named by `GITHUB_PUBLISHER_LOGIN`. Grant the installation **Contents** and **Pull requests** read/write access and access to the repositories it will publish from. Polyphemus signs a bounded App JWT and obtains a fresh, short-lived installation token inside each publication attempt; neither credential is given to Pi or persisted in Run Results. PEM private keys may use escaped `\\n` newlines in deployment secrets.
 
-Cloudflare Access provides email one-time-PIN sign-up/sign-in. Set the optional `POLYPHEMUS_ACCESS_*` values to change the application domain, Access team domain, and organization without editing source. Each identity is isolated to its own Repository Tasks and is limited to one active Agent Run and ten starts per UTC day.
+Cloudflare Access provides email one-time-PIN sign-up/sign-in. Set `POLYPHEMUS_MODEL_PROXY_ORIGIN` and the `POLYPHEMUS_ACCESS_*` values for the deployment's generated Worker and Access domains. Each identity is isolated to its own Repository Tasks and is limited to one active Agent Run and ten starts per UTC day. The `POLYPHEMUS_DEPLOYED_*` origins are required only for deployed edge tests.
 
 ## Development
 

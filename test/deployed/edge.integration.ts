@@ -1,9 +1,20 @@
 import { expect, test } from "bun:test";
 
-const WEBSITE_URL = "https://polyphemus.odysseas-patra.workers.dev";
-const MODEL_PROXY_URL = "https://polyphemus-model-proxy.odysseas-patra.workers.dev";
-const REPOSITORY_AGENT_URL = "https://polyphemus-repository-agent.odysseas-patra.workers.dev";
-const SANDBOX_RUNTIME_URL = "https://polyphemus-sandbox-runtime.odysseas-patra.workers.dev";
+const requiredOrigin = (name: string): string => {
+  const value = process.env[name];
+  if (value === undefined) throw new Error(`${name} is required for deployed tests`);
+  const url = new URL(value);
+  if (url.protocol !== "https:" || url.origin !== value.replace(/\/$/, "") ||
+      url.username !== "" || url.password !== "") {
+    throw new Error(`${name} must be an uncredentialed HTTPS origin`);
+  }
+  return url.origin;
+};
+
+const WEBSITE_URL = requiredOrigin("POLYPHEMUS_DEPLOYED_WEBSITE_URL");
+const MODEL_PROXY_URL = requiredOrigin("POLYPHEMUS_MODEL_PROXY_ORIGIN");
+const REPOSITORY_AGENT_URL = requiredOrigin("POLYPHEMUS_DEPLOYED_REPOSITORY_AGENT_URL");
+const SANDBOX_RUNTIME_URL = requiredOrigin("POLYPHEMUS_DEPLOYED_SANDBOX_RUNTIME_URL");
 
 test("deployed Website is protected by Cloudflare Access", async () => {
   const response = await fetch(WEBSITE_URL, { redirect: "manual" });
