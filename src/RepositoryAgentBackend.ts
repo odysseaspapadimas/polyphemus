@@ -130,7 +130,7 @@ export const RepositoryAgentBackendLive = RepositoryAgentBackend.make(
   {
     name: "polyphemus-repository-agent",
     main: import.meta.url,
-    url: false,
+    workersDev: false,
     compatibility: { date: "2026-07-11", flags: ["nodejs_compat"] },
     observability: { enabled: true, logs: { enabled: true, invocationLogs: true } },
     env: { SandboxRuntimeWorker },

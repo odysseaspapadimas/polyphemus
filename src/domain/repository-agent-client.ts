@@ -26,12 +26,12 @@ type SandboxPath =
   | "/sandbox-runs/finalize"
   | "/sandbox-runs/cancel";
 
-type RepositoryAgentFetch = (
+type RepositoryAgentFetch<R> = (
   request: HttpClientRequest.HttpClientRequest,
 ) => Effect.Effect<
   HttpClientResponse.HttpClientResponse,
   HttpClientError.RequestError,
-  never
+  R
 >;
 
 const workerErrorMessage = (value: unknown, status: number): string => {
@@ -41,8 +41,8 @@ const workerErrorMessage = (value: unknown, status: number): string => {
   return `Sandbox runtime returned HTTP ${status}`;
 };
 
-export const makeRepositoryAgentClient = (
-  fetchRepositoryAgent: RepositoryAgentFetch,
+export const makeRepositoryAgentClient = <R>(
+  fetchRepositoryAgent: RepositoryAgentFetch<R>,
   token: Redacted.Redacted<string>,
 ) => {
   const post = <A, I>(path: SandboxPath, body: unknown, schema: Schema.Codec<A, I, never>) =>

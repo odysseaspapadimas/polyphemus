@@ -9,7 +9,7 @@ export const ModelProxyWorker = Effect.gen(function* () {
   return yield* Cloudflare.Worker("ModelProxyWorker", {
     name: "polyphemus-model-proxy",
     main: `${import.meta.dirname}/model-proxy.ts`,
-    url: true,
+    workersDev: true,
     compatibility: { date: "2026-07-11", flags: ["nodejs_compat"] },
     observability: { enabled: true, logs: { enabled: true, invocationLogs: false } },
     env: {

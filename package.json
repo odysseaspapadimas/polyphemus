@@ -23,7 +23,7 @@
     "@tanstack/react-query": "5.101.2",
     "@tanstack/react-router": "1.170.17",
     "@tanstack/react-start": "1.168.27",
-    "alchemy": "2.0.0-beta.65",
+    "alchemy": "2.0.0-beta.67",
     "effect": "4.0.0-beta.102",
     "lucide-react": "1.24.0",
     "react": "19.2.7",
@@ -40,6 +40,8 @@
     "vite": "8.1.2"
   },
   "overrides": {
+    "@distilled.cloud/cloudflare": "0.30.3",
+    "@distilled.cloud/core": "0.30.3",
     "react": "19.2.7"
   }
 }

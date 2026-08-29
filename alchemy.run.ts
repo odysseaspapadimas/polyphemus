@@ -23,7 +23,7 @@ export const Website = Effect.gen(function* () {
 
   return yield* Cloudflare.Website.Vite("Website", {
     name: "polyphemus",
-    url: true,
+    workersDev: true,
     dev: { port: 1339, strictPort: true },
     compatibility: {
       date: "2026-07-11",
